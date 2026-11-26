@@ -1,5 +1,3 @@
-import type { OrdenPorFacturar } from "../../services/facturas.service";
-
 // LAS FACTURAS DE LA OC, UNA POR FILA (doc 19 §9.60; Felipe, 25-11-2026, con
 // las 4 facturas de la OC de Transportes CCU, al ver las dos barras de «Lo
 // del evento»: *"si pidele opciones de graficos porfaovr para ver como lo
@@ -9,7 +7,10 @@ import type { OrdenPorFacturar } from "../../services/facturas.service";
 // las aprobadas en verde claro, y lo que no tiene factura en gris. La OC y
 // la línea salen del subtítulo: ya se ven acá. Y el estado de la que se
 // revisa también (Felipe, 26-11: *"el aprobada arriba es redundante"*): la
-// fila azul dice si está aprobada o armada, y por quién.
+// fila azul dice si está aprobada o armada, y por quién. Sin OC, la misma
+// lista con el evento arriba (Felipe, 26-11: *"en caso que no tenga OC me
+// gustaria dejar un diseño similar en vez del grafico"*; de la maqueta,
+// *"Opción 1, lista"*).
 
 export type EstadoDeLaFila = "aprobada" | "armada" | "por_revisar";
 
@@ -81,29 +82,36 @@ function Fila({
 }
 
 export default function FacturasDeLaOc({
-  oc,
+  titulo,
+  total,
+  facturado,
   filas,
 }: {
-  readonly oc: OrdenPorFacturar;
-  /** Las facturas de esta OC en la revisión, en orden. */
+  /** «OC 4505522493» o, sin OC, «Evento #592». */
+  readonly titulo: string;
+  /** El total de la OC, o del evento. */
+  readonly total: number;
+  /** Lo ya emitido contra ella (con la cadena de notas). */
+  readonly facturado: number;
+  /** Las facturas de esta OC (o del evento) en la revisión, en orden. */
   readonly filas: readonly FilaDeLaOc[];
 }) {
   const enLaRevision = filas.reduce((s, f) => s + (f.monto ?? 0), 0);
-  const sinFactura = oc.total - oc.facturado - enLaRevision;
+  const sinFactura = total - facturado - enLaRevision;
   return (
     <div className="space-y-1.5">
       <p className="flex items-baseline justify-between gap-3 text-blue-800">
-        <span className="font-semibold">OC {oc.numero}</span>
+        <span className="font-semibold">{titulo}</span>
         <span className="text-base font-semibold tabular-nums text-blue-900">
-          {clp(oc.total)}
+          {clp(total)}
         </span>
       </p>
       <ul className="space-y-1">
-        {oc.facturado > REDONDEO && (
+        {facturado > REDONDEO && (
           <Fila
             etiqueta="Ya emitido"
             nota={null}
-            monto={clp(oc.facturado)}
+            monto={clp(facturado)}
             chip="emitida"
           />
         )}

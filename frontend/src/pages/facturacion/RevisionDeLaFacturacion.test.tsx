@@ -173,7 +173,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     // El documento, con las secciones de «Nuevo documento».
     expect(await screen.findByText("RAZON ev-501")).toBeInTheDocument();
     expect(screen.getByText("#501 · Cliente 501")).toBeInTheDocument();
-    expect(screen.getByText("1 de 3 · 0 aprobadas")).toBeInTheDocument();
+    expect(screen.getByText("1 de 3")).toBeInTheDocument();
     for (const s of [
       "Documento",
       "Destinatario",
@@ -194,12 +194,12 @@ describe("Facturar seleccionados: la revisión una por una", () => {
       pedida("RAZON ev-501"),
       "aprobada",
     );
-    expect(screen.getByText("2 de 3 · 1 aprobada")).toBeInTheDocument();
+    expect(screen.getByText("2 de 3")).toBeInTheDocument();
     // La 502 se salta con la flecha, sin aprobarla; la 503 se aprueba.
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     expect(await screen.findByText("RAZON ev-503")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
-    expect(screen.getByText(/esta, aprobada/)).toBeInTheDocument();
+    expect(screen.getAllByText("Aprobada").length).toBeGreaterThan(0);
     // Volver con la flecha muestra la primera, ya aprobada.
     fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
     fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
@@ -272,8 +272,8 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     fireEvent.click(screen.getByRole("button", { name: /Aprobar/ }));
     // De vuelta al documento, con lo corregido.
     expect(await screen.findByText("CORREGIDA SPA")).toBeInTheDocument();
-    expect(screen.getByText("1 de 1 · 1 aprobada")).toBeInTheDocument();
-    expect(screen.getByText(/esta, aprobada/)).toBeInTheDocument();
+    expect(screen.getByText("1 de 1")).toBeInTheDocument();
+    expect(screen.getAllByText("Aprobada").length).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: "Facturar la aprobada · $119.000" }),
     );
@@ -298,7 +298,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     fireEvent.click(screen.getByRole("button", { name: "corregir ev-501" }));
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
     expect(await screen.findByText("CORREGIDA SPA")).toBeInTheDocument();
-    expect(screen.getByText("1 de 1 · 0 aprobadas")).toBeInTheDocument();
+    expect(screen.getByText("1 de 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Aprobar/ })).toBeEnabled();
   });
 
@@ -543,10 +543,8 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     expect(screen.queryByText("LO DE BELIA")).toBeNull();
     // El motor lo revisó de nuevo con lo guardado.
     expect(f.revisarDte).toHaveBeenCalledWith("ev-501", GUARDADA.pedida);
-    expect(screen.getByText(/1 de 1 · 1 aprobada/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/esta, aprobada por Camila Soto el 10 nov/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("1 de 1")).toBeInTheDocument();
+    expect(screen.getByText(/Camila Soto · 10 nov/)).toBeInTheDocument();
     expect(f.guardarAprobada).not.toHaveBeenCalled();
     fireEvent.click(
       screen.getByRole("button", { name: "Facturar la aprobada · $595.000" }),
@@ -564,7 +562,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     f.revisarDte.mockResolvedValue(vista(false));
     abrir([evento(501)], { aprobadas: [GUARDADA] });
     expect(await screen.findByText("GUARDADA SPA")).toBeInTheDocument();
-    expect(screen.getByText("1 de 1 · 0 aprobadas")).toBeInTheDocument();
+    expect(screen.getByText("1 de 1")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Facturar las 0 aprobadas" }),
     ).toBeDisabled();
@@ -614,7 +612,8 @@ describe("Facturar seleccionados: la revisión una por una", () => {
         },
       ],
     });
-    await screen.findByText(/esta, armada por BelIA/);
+    await screen.findByText(/BelIA · /);
+    expect(screen.getByText("Armada")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Dejar armada/ })).toBeNull();
     expect(
       screen.getByRole("button", { name: /Facturar las 0 aprobadas/ }),
@@ -650,10 +649,8 @@ describe("Facturar seleccionados: la revisión una por una", () => {
         },
       ],
     });
-    expect(
-      await screen.findByText(/esta, armada por BelIA/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("1 de 1 · 0 aprobadas")).toBeInTheDocument();
+    expect(await screen.findByText(/BelIA · /)).toBeInTheDocument();
+    expect(screen.getByText("1 de 1")).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Aprobar" })).toBeEnabled(),
     );
@@ -669,6 +666,6 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     abrir([evento(501)]);
     await screen.findByText("RAZON");
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
-    expect(await screen.findByText("1 de 1 · 0 aprobadas")).toBeInTheDocument();
+    expect(await screen.findByText("1 de 1")).toBeInTheDocument();
   });
 });

@@ -209,19 +209,22 @@ function ResumenDelEvento({
   conLaRevision,
 }: {
   readonly evento: EventoPorFacturar;
-  readonly oc: OrdenPorFacturar;
+  /** Sin OC, la lista ya es la del evento: queda solo el aviso. */
+  readonly oc: OrdenPorFacturar | undefined;
   /** Lo de esta revisión del evento (la que se mira y las otras), con IVA. */
   readonly conLaRevision: number;
 }) {
   const pasa = evento.emitido + conLaRevision - evento.total;
   return (
     <>
-      <p className="text-blue-800">
-        Evento #{evento.numero} · {clp(evento.total)}
-        {evento.total > 0 &&
-          ` · esta OC es el ${pct((oc.total / evento.total) * 100)}`}
-        {evento.emitido > REDONDEO && ` · ya emitido ${clp(evento.emitido)}`}
-      </p>
+      {oc && (
+        <p className="text-blue-800">
+          Evento #{evento.numero} · {clp(evento.total)}
+          {evento.total > 0 &&
+            ` · esta OC es el ${pct((oc.total / evento.total) * 100)}`}
+          {evento.emitido > REDONDEO && ` · ya emitido ${clp(evento.emitido)}`}
+        </p>
+      )}
       {pasa > REDONDEO && (
         <Franja>
           Con lo de esta revisión se pasa del evento por {clp(pasa)}
@@ -253,8 +256,8 @@ export default function LoDelEvento({
   /** Lo de las otras facturas aprobadas de este evento en la misma
    *  revisión: la barra lo cuenta como facturado (las no aprobadas, no). */
   readonly enEstaRevision?: number;
-  /** §9.60: las facturas de la OC en esta revisión, una por fila; con
-   *  ellas, la OC va como lista en vez de las dos barras. */
+  /** §9.60: las facturas de la OC (o, sin OC, del evento) en esta
+   *  revisión, una por fila; con ellas, una lista en vez de las barras. */
   readonly filasDeLaOc?: readonly FilaDeLaOc[];
 }) {
   const ordenes = evento.ordenes ?? [];
@@ -282,9 +285,14 @@ export default function LoDelEvento({
         />
         Lo del evento
       </p>
-      {oc && filasDeLaOc ? (
+      {filasDeLaOc ? (
         <>
-          <FacturasDeLaOc oc={oc} filas={filasDeLaOc} />
+          <FacturasDeLaOc
+            titulo={oc ? `OC ${oc.numero}` : `Evento #${evento.numero}`}
+            total={oc ? oc.total : evento.total}
+            facturado={oc ? oc.facturado : evento.emitido}
+            filas={filasDeLaOc}
+          />
           <ResumenDelEvento
             evento={evento}
             oc={oc}
