@@ -3562,9 +3562,14 @@ nota de pedido, monto y estado): «Ya emitido» en verde, la que se revisa en
 azul («Revisando»), las aprobadas en verde claro, las armadas en ámbar, las
 por revisar en gris y lo que queda sin factura en gris. El evento va en una
 línea debajo («Evento #407 · $19.262.800 · esta OC es el 28 %», y lo ya
-emitido), con el aviso si con lo de esta revisión se pasa. Sin OC, la barra
-del evento sigue como antes. El subtítulo queda en «1 de 4 · 0 aprobadas»:
-la OC y la línea ya están en la lista.
+emitido), con el aviso si con lo de esta revisión se pasa. Sin OC, la misma
+lista con el evento arriba (Felipe, 26-11: *"en caso que no tenga OC me
+gustaria dejar un diseño similar en vez del grafico"*; de la maqueta,
+*"Opción 1, lista"*): lo ya emitido del evento, la factura o boleta que se
+revisa y lo que queda sin factura. El subtítulo queda en «1 de 4» (*"el
+aprobada arriba es redundante"*): el estado de la que se revisa y quién la
+dejó así («Felipe Vargas · 25 nov.») van en su fila azul, que ya no dice
+«Revisando».
 
 **Lo que cubren las pruebas:** `facturas-aprobadas.spec.ts` (la armada se
 guarda armada, también tiene que estar lista) y, en la pantalla,

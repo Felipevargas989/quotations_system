@@ -253,38 +253,35 @@ export default function RevisionDeLaFacturacion({
     (guardada.estado === "armada") === armada
       ? `${guardada.aprobada_por_nombre} · ${formatMomento(guardada.aprobada_en, "diaMes")}`
       : null;
-  const filasDeLaOc: FilaDeLaOc[] | undefined =
-    ocActual == null
-      ? undefined
-      : items.flatMap((x, j): FilaDeLaOc[] => {
-          if (x.evento.id !== evento.id || ocDe(j) !== ocActual) return [];
-          const d = j === indice ? undefined : dteDe(j);
-          const pedida =
-            j === indice
-              ? ((corrigiendo ? enCurso?.dte.pedida : null) ?? dte?.pedida)
-              : d?.pedida;
-          return [
-            {
-              clave: x.clave,
-              etiqueta:
-                x.linea != null
-                  ? nombreDeLaLinea(x.linea).replace("línea", "Línea")
-                  : "Factura",
-              nota:
-                pedida?.referencias.find((r) => r.tipo === "802")?.folio ||
-                null,
-              monto:
-                (j === indice ? vistaActual : d?.vista)?.montos?.total ?? null,
-              estado: aprobados.has(x.clave)
-                ? "aprobada"
-                : armadas.has(x.clave)
-                  ? "armada"
-                  : "por_revisar",
-              actual: j === indice,
-              quien: j === indice ? quienLaGuardo : null,
-            },
-          ];
-        });
+  // Sin OC, las del evento sin OC (§9.60, «Opción 1, lista»).
+  const filasDeLaOc: FilaDeLaOc[] = items.flatMap((x, j): FilaDeLaOc[] => {
+    if (x.evento.id !== evento.id || ocDe(j) !== ocActual) return [];
+    const d = j === indice ? undefined : dteDe(j);
+    const pedida =
+      j === indice
+        ? ((corrigiendo ? enCurso?.dte.pedida : null) ?? dte?.pedida)
+        : d?.pedida;
+    return [
+      {
+        clave: x.clave,
+        etiqueta:
+          x.linea != null
+            ? nombreDeLaLinea(x.linea).replace("línea", "Línea")
+            : (j === indice ? dte : dteDe(j))?.tipo === 39
+              ? "Boleta"
+              : "Factura",
+        nota: pedida?.referencias.find((r) => r.tipo === "802")?.folio || null,
+        monto: (j === indice ? vistaActual : d?.vista)?.montos?.total ?? null,
+        estado: aprobados.has(x.clave)
+          ? "aprobada"
+          : armadas.has(x.clave)
+            ? "armada"
+            : "por_revisar",
+        actual: j === indice,
+        quien: j === indice ? quienLaGuardo : null,
+      },
+    ];
+  });
   const porEmitir = items
     .map((it, j) => ({ it, dte: dteDe(j) }))
     .filter(
@@ -473,25 +470,8 @@ export default function RevisionDeLaFacturacion({
     <span className="flex justify-center">
       <span className="w-7 shrink-0" aria-hidden="true" />
       <span>
+        {/* §9.60: el estado y quién, en la fila azul de la lista. */}
         {indice + 1} de {items.length}
-        {/* §9.60: con la lista de la OC, el estado ya va en su fila. */}
-        {!filasDeLaOc && (
-          <>
-            {" "}
-            · {aprobados.size} {aprobados.size === 1 ? "aprobada" : "aprobadas"}
-          </>
-        )}
-        {!filasDeLaOc && (aprobado || armada) && !termino && (
-          <span className={aprobado ? "text-emerald-700" : "text-amber-700"}>
-            {" "}
-            · esta, {aprobado ? "aprobada" : "armada"}
-            {guardada &&
-            !corregidos[item.clave] &&
-            (guardada.estado === "armada") === armada
-              ? ` por ${guardada.aprobada_por_nombre} el ${formatMomento(guardada.aprobada_en, "diaMes")}`
-              : ""}
-          </span>
-        )}
       </span>
     </span>
   );
