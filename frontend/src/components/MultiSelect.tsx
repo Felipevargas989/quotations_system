@@ -31,6 +31,11 @@ interface MultiSelectProps {
   readonly compacto?: boolean;
   /** El ícono del chip compacto. */
   readonly icono?: ReactNode;
+  /** Lo que dice la caja con todo marcado (25-11-2026, Post-Venta: «Todo»). */
+  readonly textoTodos?: string;
+  /** El color del borde de la caja normal (25-11-2026, Post-Venta: violeta
+   *  la Agenda y verde la Cobranza, para que no se vean iguales). */
+  readonly claseBorde?: string;
 }
 
 export default function MultiSelect({
@@ -44,6 +49,8 @@ export default function MultiSelect({
   searchPlaceholder = "Buscar…",
   compacto = false,
   icono,
+  textoTodos = "Todos seleccionados",
+  claseBorde = "border-gray-300",
 }: MultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [busca, setBusca] = useState("");
@@ -91,7 +98,7 @@ export default function MultiSelect({
 
   const getDisplayText = () => {
     if (value.length === 0) return placeholder;
-    if (value.length === options.length) return "Todos seleccionados";
+    if (value.length === options.length) return textoTodos;
     if (value.length === 1) {
       const selectedOption = options.find(
         (option) => option.value === value[0],
@@ -155,7 +162,7 @@ export default function MultiSelect({
         <button
           type="button"
           className={`
-          w-full px-3 py-2 border border-gray-300 rounded-lg
+          w-full px-3 py-2 border ${claseBorde} rounded-lg
           focus:ring-2 focus:ring-blue-500 focus:border-transparent
           cursor-pointer bg-white flex items-center justify-between
           ${disabled ? "opacity-50 cursor-not-allowed" : ""}
