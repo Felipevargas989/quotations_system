@@ -245,6 +245,14 @@ export default function RevisionDeLaFacturacion({
   const ocActual = ocDe(indice);
   const vistaActual =
     (corrigiendo ? enCurso?.dte.vista : null) ?? dte?.vista ?? null;
+  // Quién dejó la que se revisa en su estado, si sigue como se guardó.
+  const quienLaGuardo =
+    guardada &&
+    !corregidos[item.clave] &&
+    (aprobado || armada) &&
+    (guardada.estado === "armada") === armada
+      ? `${guardada.aprobada_por_nombre} · ${formatMomento(guardada.aprobada_en, "diaMes")}`
+      : null;
   const filasDeLaOc: FilaDeLaOc[] | undefined =
     ocActual == null
       ? undefined
@@ -267,14 +275,13 @@ export default function RevisionDeLaFacturacion({
                 null,
               monto:
                 (j === indice ? vistaActual : d?.vista)?.montos?.total ?? null,
-              estado:
-                j === indice
-                  ? "esta"
-                  : aprobados.has(x.clave)
-                    ? "aprobada"
-                    : armadas.has(x.clave)
-                      ? "armada"
-                      : "por_revisar",
+              estado: aprobados.has(x.clave)
+                ? "aprobada"
+                : armadas.has(x.clave)
+                  ? "armada"
+                  : "por_revisar",
+              actual: j === indice,
+              quien: j === indice ? quienLaGuardo : null,
             },
           ];
         });
@@ -466,9 +473,15 @@ export default function RevisionDeLaFacturacion({
     <span className="flex justify-center">
       <span className="w-7 shrink-0" aria-hidden="true" />
       <span>
-        {indice + 1} de {items.length} · {aprobados.size}{" "}
-        {aprobados.size === 1 ? "aprobada" : "aprobadas"}
-        {(aprobado || armada) && !termino && (
+        {indice + 1} de {items.length}
+        {/* §9.60: con la lista de la OC, el estado ya va en su fila. */}
+        {!filasDeLaOc && (
+          <>
+            {" "}
+            · {aprobados.size} {aprobados.size === 1 ? "aprobada" : "aprobadas"}
+          </>
+        )}
+        {!filasDeLaOc && (aprobado || armada) && !termino && (
           <span className={aprobado ? "text-emerald-700" : "text-amber-700"}>
             {" "}
             · esta, {aprobado ? "aprobada" : "armada"}

@@ -352,7 +352,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     expect(screen.getByText(/ya emitido \$2\.805\.800/)).toBeInTheDocument();
     // La OC de esta factura, con su fila «Revisando» por $450.000.
     expect(screen.getByText("OC 33000132941")).toBeInTheDocument();
-    expect(screen.getByText("Revisando")).toBeInTheDocument();
+    expect(screen.getByText("Por revisar")).toBeInTheDocument();
     expect(screen.getAllByText("$450.000").length).toBeGreaterThan(0);
   });
 
@@ -400,7 +400,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     // Una por OC: tres documentos del mismo evento, cada uno con su OC.
     expect(await screen.findByText("OC 4")).toBeInTheDocument();
     // §9.60: el subtítulo sin la OC; la OC va en la lista.
-    expect(screen.getByText("1 de 3 · 0 aprobadas")).toBeInTheDocument();
+    expect(screen.getByText("1 de 3")).toBeInTheDocument();
     expect(screen.getByText("OC 33000132942")).toBeInTheDocument();
     expect(
       r.revisarUnoParaLaMasiva.mock.calls.map((c) => [c[0], c[1]]),
@@ -460,7 +460,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     ]);
     expect(await screen.findByText("LINEA 0")).toBeInTheDocument();
     // §9.60: la OC y sus 4 líneas en la lista; el subtítulo, corto.
-    expect(screen.getByText("1 de 4 · 0 aprobadas")).toBeInTheDocument();
+    expect(screen.getByText("1 de 4")).toBeInTheDocument();
     expect(screen.getByText("OC 4505522493")).toBeInTheDocument();
     expect(screen.getByText("Línea 10")).toBeInTheDocument();
     expect(screen.getByText("Línea 40")).toBeInTheDocument();
