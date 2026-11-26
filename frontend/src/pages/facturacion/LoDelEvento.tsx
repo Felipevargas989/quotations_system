@@ -7,6 +7,7 @@ import type {
   TipoDeDte,
   VistaPrevia,
 } from "../../services/facturas.service";
+import FacturasDeLaOc, { type FilaDeLaOc } from "./FacturasDeLaOc";
 
 // LO DEL EVENTO (doc 19 §9.31; Felipe, 08-11: *"me parece extensa la
 // cantidad de información por línea, el nro de OC está dos veces, quizás el
@@ -200,6 +201,36 @@ function Medida({
   );
 }
 
+/** §9.60: el evento en una línea, bajo la lista de la OC: su total, cuánto
+ *  es esta OC y, si con lo de esta revisión se pasa, cuánto. */
+function ResumenDelEvento({
+  evento,
+  oc,
+  conLaRevision,
+}: {
+  readonly evento: EventoPorFacturar;
+  readonly oc: OrdenPorFacturar;
+  /** Lo de esta revisión del evento (la que se mira y las otras), con IVA. */
+  readonly conLaRevision: number;
+}) {
+  const pasa = evento.emitido + conLaRevision - evento.total;
+  return (
+    <>
+      <p className="text-blue-800">
+        Evento #{evento.numero} · {clp(evento.total)}
+        {evento.total > 0 &&
+          ` · esta OC es el ${pct((oc.total / evento.total) * 100)}`}
+        {evento.emitido > REDONDEO && ` · ya emitido ${clp(evento.emitido)}`}
+      </p>
+      {pasa > REDONDEO && (
+        <Franja>
+          Con lo de esta revisión se pasa del evento por {clp(pasa)}
+        </Franja>
+      )}
+    </>
+  );
+}
+
 export default function LoDelEvento({
   evento,
   noLeidas,
@@ -207,6 +238,7 @@ export default function LoDelEvento({
   tipo,
   ocActual = null,
   enEstaRevision = 0,
+  filasDeLaOc,
 }: {
   readonly evento: EventoPorFacturar;
   /** Lo que BelIA no pudo leer en la primera lectura de «Por facturar». */
@@ -221,6 +253,9 @@ export default function LoDelEvento({
   /** Lo de las otras facturas aprobadas de este evento en la misma
    *  revisión: la barra lo cuenta como facturado (las no aprobadas, no). */
   readonly enEstaRevision?: number;
+  /** §9.60: las facturas de la OC en esta revisión, una por fila; con
+   *  ellas, la OC va como lista en vez de las dos barras. */
+  readonly filasDeLaOc?: readonly FilaDeLaOc[];
 }) {
   const ordenes = evento.ordenes ?? [];
   const sinLeer = evento.ocs_sin_leer ?? 0;
@@ -247,28 +282,41 @@ export default function LoDelEvento({
         />
         Lo del evento
       </p>
-      {oc && (
-        <Medida titulo={`OC ${oc.numero}`} total={oc.total}>
-          <BarraDeLoFacturado
-            total={oc.total}
-            facturado={oc.facturado}
-            esta={esta}
-            nombre={nombre}
-            de="de la OC"
+      {oc && filasDeLaOc ? (
+        <>
+          <FacturasDeLaOc oc={oc} filas={filasDeLaOc} />
+          <ResumenDelEvento
+            evento={evento}
+            oc={oc}
+            conLaRevision={enEstaRevision + esta}
           />
-        </Medida>
+        </>
+      ) : (
+        <>
+          {oc && (
+            <Medida titulo={`OC ${oc.numero}`} total={oc.total}>
+              <BarraDeLoFacturado
+                total={oc.total}
+                facturado={oc.facturado}
+                esta={esta}
+                nombre={nombre}
+                de="de la OC"
+              />
+            </Medida>
+          )}
+          <Medida
+            titulo={oc ? `Evento #${evento.numero}` : "Evento"}
+            total={evento.total}
+          >
+            <BarraDeLoFacturado
+              total={evento.total}
+              facturado={evento.emitido + enEstaRevision}
+              esta={esta}
+              nombre={nombre}
+            />
+          </Medida>
+        </>
       )}
-      <Medida
-        titulo={oc ? `Evento #${evento.numero}` : "Evento"}
-        total={evento.total}
-      >
-        <BarraDeLoFacturado
-          total={evento.total}
-          facturado={evento.emitido + enEstaRevision}
-          esta={esta}
-          nombre={nombre}
-        />
-      </Medida>
       {fallas.map((f) => (
         <Franja key={f.documento_id}>
           BelIA no pudo leer «{f.nombre}»: {f.motivo.replace(/\.$/, "")}

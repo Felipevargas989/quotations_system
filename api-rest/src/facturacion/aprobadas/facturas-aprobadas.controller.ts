@@ -47,6 +47,7 @@ export class FacturasAprobadasController {
       user,
       dto.oc_id ?? null,
       dto.pedida as DtePedido,
+      dto.estado ?? 'aprobada',
     );
   }
 

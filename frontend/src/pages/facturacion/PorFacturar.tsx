@@ -105,17 +105,23 @@ function EstadoDeLaFila({
   readonly evento: EventoPorFacturar;
   readonly guardadas: ReadonlyMap<string, FacturaAprobada>;
 }) {
-  const { aprobadas, de } = aprobadasDe(evento, guardadas);
-  const ultima = aprobadas[aprobadas.length - 1];
+  const { aprobadas: todas, de } = aprobadasDe(evento, guardadas);
+  // §9.60: «Aprobada» si alguna está aprobada; si solo hay armadas, «Armada»
+  // en ámbar.
+  const aprobadas = todas.filter((a) => a.estado !== "armada");
+  const cuales = aprobadas.length ? aprobadas : todas;
+  const ultima = cuales[cuales.length - 1];
   if (!ultima)
     return <ChipDeFacturacion estado={evento.facturacion ?? "pendiente"} />;
   return (
     <>
-      <span className="inline-block whitespace-nowrap rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-        Aprobada
+      <span
+        className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${aprobadas.length ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}
+      >
+        {aprobadas.length ? "Aprobada" : "Armada"}
       </span>
       <span className="block whitespace-nowrap text-xs text-gray-500">
-        {aprobadas.length < de ? `${aprobadas.length} de ${de} · ` : ""}
+        {cuales.length < de ? `${cuales.length} de ${de} · ` : ""}
         {ultima.aprobada_por_nombre.split(" ")[0]} ·{" "}
         {formatMomento(ultima.aprobada_en, "diaMes")}
       </span>

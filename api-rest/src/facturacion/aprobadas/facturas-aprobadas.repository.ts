@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { DtePedido } from '../facturas/borrador';
 
+/** §9.60: armada (lista para revisar) o aprobada (revisada y conforme). */
+export type EstadoDeLaGuardada = 'armada' | 'aprobada';
+
 /** El documento de un evento, aprobado y guardado (migración 203). */
 export interface FacturaAprobada {
   quotation_id: string;
@@ -11,6 +14,9 @@ export interface FacturaAprobada {
    *  línea; si no, nulo. */
   linea_de_la_oc: number | null;
   pedida: DtePedido;
+  /** §9.60: armada (lista para revisar) o aprobada (revisada). */
+  estado: EstadoDeLaGuardada;
+  /** Quién la guardó en su estado: quién la armó o quién la aprobó. */
   aprobada_por_nombre: string;
   /** ISO. */
   aprobada_en: string;
@@ -20,18 +26,20 @@ interface Fila {
   quotation_id: string;
   oc_id: number | null;
   linea_de_la_oc: number | null;
+  estado: EstadoDeLaGuardada | null;
   pedida: DtePedido;
   aprobada_por_nombre: string;
   created_at: string;
 }
 
 const COLUMNAS =
-  'quotation_id, oc_id, linea_de_la_oc, pedida, aprobada_por_nombre, created_at';
+  'quotation_id, oc_id, linea_de_la_oc, estado, pedida, aprobada_por_nombre, created_at';
 
 const aprobada = (f: Fila): FacturaAprobada => ({
   quotation_id: f.quotation_id,
   oc_id: f.oc_id == null ? null : Number(f.oc_id),
   linea_de_la_oc: f.linea_de_la_oc == null ? null : Number(f.linea_de_la_oc),
+  estado: f.estado === 'armada' ? 'armada' : 'aprobada',
   pedida: f.pedida,
   aprobada_por_nombre: f.aprobada_por_nombre,
   aprobada_en: f.created_at,
@@ -89,6 +97,7 @@ export class FacturasAprobadasRepository {
     quotation_id: string;
     oc_id: number | null;
     linea_de_la_oc: number | null;
+    estado: EstadoDeLaGuardada;
     pedida: DtePedido;
     aprobada_por: string | null;
     aprobada_por_nombre: string;
