@@ -55,6 +55,7 @@ describe('las facturas aprobadas que esperan (§9.48)', () => {
       quotation_id: 'ev-1',
       oc_id: null,
       linea_de_la_oc: null,
+      estado: 'aprobada',
       pedida: PEDIDA,
       aprobada_por: 'u-felipe',
       aprobada_por_nombre: 'Felipe Vargas',
@@ -67,6 +68,30 @@ describe('las facturas aprobadas que esperan (§9.48)', () => {
     expect(repo.guardar).toHaveBeenCalledWith(
       expect.objectContaining({ quotation_id: 'ev-1', oc_id: 9 }),
     );
+  });
+
+  // §9.60: «Dejar armada» la guarda lista para revisar, sin aprobarla.
+  it('armada se guarda como armada, con quién la armó', async () => {
+    const { servicio, repo } = armar();
+    await servicio.aprobar('ev-1', USUARIO, 9, PEDIDA, 'armada');
+    expect(repo.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estado: 'armada',
+        aprobada_por_nombre: 'Felipe Vargas',
+      }),
+    );
+  });
+
+  it('armada también tiene que estar lista: lo que falta no se guarda', async () => {
+    const { servicio, repo } = armar({
+      ok: false,
+      faltan: [{ campo: 'referencia:802', texto: 'la nota de pedido' }],
+      problemas: [],
+    });
+    await expect(
+      servicio.aprobar('ev-1', USUARIO, 9, PEDIDA, 'armada'),
+    ).rejects.toThrow(new BadRequestException('Falta la nota de pedido'));
+    expect(repo.guardar).not.toHaveBeenCalled();
   });
 
   it('lo que no está listo no se guarda: dice qué le falta', async () => {

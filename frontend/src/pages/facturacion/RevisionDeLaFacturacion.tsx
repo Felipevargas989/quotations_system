@@ -27,6 +27,7 @@ import { humanizeApiError } from "../../utils/apiErrors";
 import { formatMomento } from "../../utils/dates";
 import CorregirDte, { type EnCorreccion } from "./CorregirDte";
 import DocumentoDelDte from "./DocumentoDelDte";
+import type { FilaDeLaOc } from "./FacturasDeLaOc";
 import LoDelEvento from "./LoDelEvento";
 import {
   nombreDeLaLinea,
@@ -165,12 +166,18 @@ export default function RevisionDeLaFacturacion({
       retry: false,
     })),
   });
+  // §9.60: las guardadas armadas (listas para revisar) no cuentan como
+  // aprobadas.
+  const aprobadaGuardada = (clave: string) => {
+    const g = guardadas.get(clave);
+    return !!g && g.estado !== "armada";
+  };
   // Parte en la primera que falta por aprobar (o en la primera, si todas
   // vienen aprobadas: llegar y facturar).
   const [indice, setIndice] = useState(() =>
     Math.max(
       0,
-      items.findIndex((x) => !guardadas.has(x.clave)),
+      items.findIndex((x) => !aprobadaGuardada(x.clave)),
     ),
   );
   const [corregidos, setCorregidos] = useState<
@@ -178,7 +185,18 @@ export default function RevisionDeLaFacturacion({
   >({});
   const [marcados, setAprobados] = useState<ReadonlySet<string>>(
     () =>
-      new Set(items.filter((x) => guardadas.has(x.clave)).map((x) => x.clave)),
+      new Set(
+        items.filter((x) => aprobadaGuardada(x.clave)).map((x) => x.clave),
+      ),
+  );
+  // §9.60: las armadas, guardadas para revisar sin aprobar.
+  const [armadas, setArmadas] = useState<ReadonlySet<string>>(
+    () =>
+      new Set(
+        items
+          .filter((x) => guardadas.get(x.clave)?.estado === "armada")
+          .map((x) => x.clave),
+      ),
   );
   // Lo que se está guardando o quitando: «Facturar» lo espera, para que
   // nada quede guardado después de emitido.
@@ -207,6 +225,7 @@ export default function RevisionDeLaFacturacion({
   const consulta = revisados[indice];
   const dte = dteDe(indice);
   const aprobado = aprobados.has(item.clave);
+  const armada = !aprobado && armadas.has(item.clave);
   const guardada = guardadas.get(item.clave);
   // Lo de las otras facturas APROBADAS de este mismo evento (una por OC):
   // la barra del evento las cuenta como facturadas; las que no se
@@ -219,6 +238,50 @@ export default function RevisionDeLaFacturacion({
         : s,
     0,
   );
+  // §9.60: las facturas de la OC de esta, una por fila (la que se revisa,
+  // las aprobadas, las armadas y las por revisar).
+  const ocDe = (j: number) =>
+    items[j].ocId ?? dteDe(j)?.pedida.orden_de_compra_id ?? null;
+  const ocActual = ocDe(indice);
+  const vistaActual =
+    (corrigiendo ? enCurso?.dte.vista : null) ?? dte?.vista ?? null;
+  // Quién dejó la que se revisa en su estado, si sigue como se guardó.
+  const quienLaGuardo =
+    guardada &&
+    !corregidos[item.clave] &&
+    (aprobado || armada) &&
+    (guardada.estado === "armada") === armada
+      ? `${guardada.aprobada_por_nombre} · ${formatMomento(guardada.aprobada_en, "diaMes")}`
+      : null;
+  // Sin OC, las del evento sin OC (§9.60, «Opción 1, lista»).
+  const filasDeLaOc: FilaDeLaOc[] = items.flatMap((x, j): FilaDeLaOc[] => {
+    if (x.evento.id !== evento.id || ocDe(j) !== ocActual) return [];
+    const d = j === indice ? undefined : dteDe(j);
+    const pedida =
+      j === indice
+        ? ((corrigiendo ? enCurso?.dte.pedida : null) ?? dte?.pedida)
+        : d?.pedida;
+    return [
+      {
+        clave: x.clave,
+        etiqueta:
+          x.linea != null
+            ? nombreDeLaLinea(x.linea).replace("línea", "Línea")
+            : (j === indice ? dte : dteDe(j))?.tipo === 39
+              ? "Boleta"
+              : "Factura",
+        nota: pedida?.referencias.find((r) => r.tipo === "802")?.folio || null,
+        monto: (j === indice ? vistaActual : d?.vista)?.montos?.total ?? null,
+        estado: aprobados.has(x.clave)
+          ? "aprobada"
+          : armadas.has(x.clave)
+            ? "armada"
+            : "por_revisar",
+        actual: j === indice,
+        quien: j === indice ? quienLaGuardo : null,
+      },
+    ];
+  });
   const porEmitir = items
     .map((it, j) => ({ it, dte: dteDe(j) }))
     .filter(
@@ -238,46 +301,72 @@ export default function RevisionDeLaFacturacion({
     setIndice(j);
   };
 
-  const aprobar = (corregido?: RevisadoParaLaMasiva) => {
+  /** §9.48: «Aprobar» la guarda aprobada; §9.60: «Dejar armada», lista
+   *  para revisar, sin aprobarla. */
+  const guardar = (
+    estado: "armada" | "aprobada",
+    corregido?: RevisadoParaLaMasiva,
+  ) => {
     const documento = corregido ?? dte;
     if (!documento) return;
     if (corregido) setCorregidos((c) => ({ ...c, [item.clave]: corregido }));
-    const nuevos = new Set(aprobados);
-    nuevos.add(item.clave);
-    setAprobados(nuevos);
-    // §9.48: queda guardada para facturarla después.
     const { clave } = item;
+    const sacar = (s: ReadonlySet<string>) => {
+      const n = new Set(s);
+      n.delete(clave);
+      return n;
+    };
+    const nuevos = new Set(aprobados);
+    const nuevasArmadas = new Set(armadas);
+    if (estado === "aprobada") {
+      nuevos.add(clave);
+      nuevasArmadas.delete(clave);
+    } else {
+      nuevos.delete(clave);
+      nuevasArmadas.add(clave);
+    }
+    setAprobados(nuevos);
+    setArmadas(nuevasArmadas);
     seguir(
       guardarAprobada(
         evento.id,
         item.ocId,
         conSuLinea(documento.pedida, item),
+        estado,
       ).catch((err) => {
-        setAprobados((a) => {
-          const n = new Set(a);
-          n.delete(clave);
-          return n;
-        });
+        setAprobados(sacar);
+        setArmadas(sacar);
         toast.error(
           humanizeApiError(
             err,
-            `No se pudo guardar la aprobación del #${evento.numero}.`,
+            estado === "aprobada"
+              ? `No se pudo guardar la aprobación del #${evento.numero}.`
+              : `No se pudo dejar armada la del #${evento.numero}.`,
           ),
         );
       }),
     );
     setCorrigiendo(false);
     setEnCurso(null);
-    // Sigue con el próximo que falta por aprobar.
+    // Sigue con el próximo que falta por aprobar (y, al armar, por armar).
     const siguiente = items.findIndex(
-      (x, j) => j > indice && !nuevos.has(x.clave),
+      (x, j) =>
+        j > indice &&
+        !nuevos.has(x.clave) &&
+        (estado === "aprobada" || !nuevasArmadas.has(x.clave)),
     );
     if (siguiente >= 0) setIndice(siguiente);
   };
+  // §9.60 (Felipe, 25-11: *"el dejar armada es un proceso interno (…)
+  // nosotros corregimos, aprobamos, facturamos"*): la ventana solo aprueba;
+  // la armada la deja el sistema.
+  const aprobar = (corregido?: RevisadoParaLaMasiva) =>
+    guardar("aprobada", corregido);
 
   const corregir = () => {
-    // Corregido, deja de estar aprobado hasta que se apruebe de nuevo.
-    if (marcados.has(item.clave))
+    // Corregido, deja de estar aprobado (o armado) hasta que se guarde de
+    // nuevo.
+    if (marcados.has(item.clave) || armadas.has(item.clave))
       seguir(
         quitarAprobada(evento.id, item.ocId, item.linea).catch((err) =>
           toast.error(
@@ -286,6 +375,11 @@ export default function RevisionDeLaFacturacion({
         ),
       );
     setAprobados((a) => {
+      const n = new Set(a);
+      n.delete(item.clave);
+      return n;
+    });
+    setArmadas((a) => {
       const n = new Set(a);
       n.delete(item.clave);
       return n;
@@ -376,21 +470,8 @@ export default function RevisionDeLaFacturacion({
     <span className="flex justify-center">
       <span className="w-7 shrink-0" aria-hidden="true" />
       <span>
+        {/* §9.60: el estado y quién, en la fila azul de la lista. */}
         {indice + 1} de {items.length}
-        {item.ocNumero && !termino ? ` · OC ${item.ocNumero}` : ""}
-        {item.linea != null && !termino
-          ? ` · ${nombreDeLaLinea(item.linea)}`
-          : ""}{" "}
-        · {aprobados.size} {aprobados.size === 1 ? "aprobada" : "aprobadas"}
-        {aprobado && !termino && (
-          <span className="text-emerald-700">
-            {" "}
-            · esta, aprobada
-            {guardada && !corregidos[item.clave]
-              ? ` por ${guardada.aprobada_por_nombre} el ${formatMomento(guardada.aprobada_en, "diaMes")}`
-              : ""}
-          </span>
-        )}
       </span>
     </span>
   );
@@ -546,8 +627,9 @@ export default function RevisionDeLaFacturacion({
             tipo={(corrigiendo ? enCurso?.dte.tipo : null) ?? dte?.tipo}
             // La OC del documento tiene su propia barra, también cuando el
             // evento va con una sola (Felipe, 08-11).
-            ocActual={item.ocId ?? dte?.pedida.orden_de_compra_id ?? null}
+            ocActual={ocActual}
             enEstaRevision={enEstaRevision}
+            filasDeLaOc={filasDeLaOc}
           />
           {corrigiendo && dte ? (
             <CorregirDte

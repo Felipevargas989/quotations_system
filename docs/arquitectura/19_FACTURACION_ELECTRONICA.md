@@ -3519,7 +3519,66 @@ boleta o la factura sin OC sin línea), el caso de «Por facturar» en
 por línea» en `RevisionDeLaFacturacion.test.tsx`.
 
 En la rama `feature/varias-facturas-por-oc` desde el 25-11-2026, con la
-migración 215.
+migración 215. **En producción desde el 25-11-2026** (PR #404; la 215 en
+las dos bases).
+
+### 9.60 La factura armada, aparte de la aprobada, y la OC como lista (25-11)
+
+Felipe, 25-11, al abrir las 4 facturas de la #407 que se le dejaron listas:
+*"por que dice que yo la aprobe?"*. La única forma de guardar una factura
+de «Facturar seleccionados» era «Aprobar» (§9.48), así que quien la dejaba
+lista la aprobaba a nombre de la sesión. Y de las dos barras de «Lo del
+evento» (la del evento decía «Facturado $534.824» sin nada emitido: sumaba
+las otras aprobadas, §9.40): *"si pidele opciones de graficos porfaovr para
+ver como lo podemos ver"*. De tres maquetas eligió la lista: *"me tinca la
+C"*; y *"con eso el subtitulo podria ser mas pequeño la OC y la linea
+estaría de más"*. Con las dos: *"si haz las dos"*.
+
+**Armada y aprobada, dos pasos** (y sin botón para armar: *"el dejar
+armada es un proceso interno en función de las OC que están cargadas (…) y
+la lectura de la cotización si no hay OC (…) nosotros corregimos,
+aprobamos, facturamos"*):
+- Armada: la deja el sistema (BelIA, desde la OC o la cotización), guardada
+  y lista para revisar, en ámbar («esta, armada por BelIA el 25 nov.»). No
+  cuenta como aprobada ni se factura. En la ventana no hay «Dejar armada»:
+  la persona corrige, aprueba y factura.
+- «Aprobar»: revisada y conforme, en verde, como antes, a nombre de quien
+  aprueba. Solo las aprobadas van en «Facturar las N aprobadas».
+- Las dos tienen que estar listas (lo que falta no se guarda). «Corregir»
+  saca la guardada, sea armada o aprobada. Aprobar una armada la deja
+  aprobada.
+- La base: `facturas_aprobadas.estado`, 'armada' o 'aprobada' (migración
+  216; las que había quedan aprobadas). `aprobada_por_nombre` dice quién la
+  guardó en su estado. El motor: `estado` en `PUT
+  /quotations/:id/facturas/aprobada`.
+- «Por facturar»: «Aprobada» en verde si alguna está aprobada; si solo hay
+  armadas, «Armada» en ámbar, con cuántas de cuántas.
+- La ventana parte en la primera que falta por aprobar: las armadas cuentan
+  como por aprobar.
+
+**La OC como lista** (`FacturasDeLaOc`): cuando la factura va contra una
+OC, «Lo del evento» muestra la OC con cada factura en una fila (línea,
+nota de pedido, monto y estado): «Ya emitido» en verde, la que se revisa en
+azul («Revisando»), las aprobadas en verde claro, las armadas en ámbar, las
+por revisar en gris y lo que queda sin factura en gris. El evento va en una
+línea debajo («Evento #407 · $19.262.800 · esta OC es el 28 %», y lo ya
+emitido), con el aviso si con lo de esta revisión se pasa. Sin OC, la misma
+lista con el evento arriba (Felipe, 26-11: *"en caso que no tenga OC me
+gustaria dejar un diseño similar en vez del grafico"*; de la maqueta,
+*"Opción 1, lista"*): lo ya emitido del evento, la factura o boleta que se
+revisa y lo que queda sin factura. El subtítulo queda en «1 de 4» (*"el
+aprobada arriba es redundante"*): el estado de la que se revisa y quién la
+dejó así («Felipe Vargas · 25 nov.») van en su fila azul, que ya no dice
+«Revisando».
+
+**Lo que cubren las pruebas:** `facturas-aprobadas.spec.ts` (la armada se
+guarda armada, también tiene que estar lista) y, en la pantalla,
+`RevisionDeLaFacturacion.test.tsx` (la armada por el sistema no se factura
+hasta aprobarla y no hay botón para armar, una guardada armada se abre
+armada a nombre de quien la armó, la OC como lista y el subtítulo corto).
+
+En la rama `feature/factura-armada` desde el 25-11-2026, con la migración
+216.
 
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 

@@ -271,10 +271,12 @@ export const guardarAprobada = async (
   quotationId: string,
   ocId: number | null,
   pedida: DtePedido,
+  estado: "armada" | "aprobada" = "aprobada",
 ): Promise<FacturaAprobada> =>
   (await apiRequest(`${ruta(quotationId)}/aprobada`, "PUT", {
     oc_id: ocId,
     pedida,
+    estado,
   })) as FacturaAprobada;
 
 /** §9.48: «Corregir» una aprobada la deja sin aprobar (§9.59: la de esa
@@ -358,6 +360,9 @@ export interface FacturaAprobada {
   oc_id: number | null;
   /** §9.59: la línea de la OC si la OC va en una factura por línea. */
   linea_de_la_oc?: number | null;
+  /** §9.60: armada (lista para revisar) o aprobada (revisada); sin esto,
+   *  aprobada. `aprobada_por_nombre` es quién la guardó en ese estado. */
+  estado?: "armada" | "aprobada";
   pedida: DtePedido;
   aprobada_por_nombre: string;
   /** ISO. */
