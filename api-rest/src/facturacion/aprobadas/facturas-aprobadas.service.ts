@@ -5,7 +5,10 @@ import type { User } from 'src/users/entities/user.entity';
 import { textoLimpio } from '../archivo/texto';
 import type { DtePedido } from '../facturas/borrador';
 import { FacturasService } from '../facturas/facturas.service';
-import { FacturasAprobadasRepository } from './facturas-aprobadas.repository';
+import {
+  FacturasAprobadasRepository,
+  type EstadoDeLaGuardada,
+} from './facturas-aprobadas.repository';
 
 /** Quién: el nombre del perfil de la sesión, como en la caja (§9.43). */
 const nombreDelPerfil = (user: User) =>
@@ -40,6 +43,7 @@ export class FacturasAprobadasService {
     user: User,
     ocId: number | null,
     pedida: DtePedido,
+    estado: EstadoDeLaGuardada = 'aprobada',
   ) {
     const companyId = user.company_id;
     const revision = await this.facturas.revisar(
@@ -63,6 +67,7 @@ export class FacturasAprobadasService {
       quotation_id: quotationId,
       oc_id: ocId,
       linea_de_la_oc: linea,
+      estado,
       pedida,
       aprobada_por: user.id ?? null,
       aprobada_por_nombre: nombreDelPerfil(user),
