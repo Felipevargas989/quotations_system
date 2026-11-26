@@ -594,41 +594,44 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     );
   });
 
-  // §9.60 (Felipe, 25-11: *"por que dice que yo la aprobe?"*): «Dejar
-  // armada» la guarda lista para revisar, sin aprobarla ni facturarla.
-  it("«Dejar armada» la guarda armada, en ámbar, y no se factura", async () => {
-    r.revisarUnoParaLaMasiva.mockImplementation((id) =>
-      Promise.resolve({
-        tipo: 33,
-        pedida: pedida(`RAZON ${id}`),
-        vista: vista(true),
-      }),
-    );
-    abrir([evento(501), evento(502)]);
-    await screen.findByText("RAZON ev-501");
-    fireEvent.click(screen.getByRole("button", { name: "Dejar armada" }));
-    expect(f.guardarAprobada).toHaveBeenCalledWith(
-      "ev-501",
-      null,
-      pedida("RAZON ev-501"),
-      "armada",
-    );
-    // Pasa a la siguiente; la armada no cuenta como aprobada.
-    expect(await screen.findByText("RAZON ev-502")).toBeInTheDocument();
-    expect(screen.getByText("2 de 2 · 0 aprobadas")).toBeInTheDocument();
+  // §9.60 (Felipe, 25-11: *"por que dice que yo la aprobe?"* y *"el dejar
+  // armada es un proceso interno (…) nosotros corregimos, aprobamos,
+  // facturamos"*): la armada la deja el sistema; la ventana no la arma, no
+  // la factura y la aprueba a nombre de quien aprueba.
+  it("la armada por el sistema no se factura hasta aprobarla, y no hay botón para armar", async () => {
+    f.revisarDte.mockResolvedValue(vista(true));
+    r.revisarUnoParaLaMasiva.mockResolvedValue({
+      tipo: 33,
+      pedida: pedida("GUARDADA SPA"),
+      vista: vista(true),
+    });
+    abrir([evento(501)], {
+      aprobadas: [
+        {
+          ...GUARDADA,
+          estado: "armada" as const,
+          aprobada_por_nombre: "BelIA",
+        },
+      ],
+    });
+    await screen.findByText(/esta, armada por BelIA/);
+    expect(screen.queryByRole("button", { name: /Dejar armada/ })).toBeNull();
     expect(
       screen.getByRole("button", { name: /Facturar las 0 aprobadas/ }),
     ).toBeDisabled();
-    // De vuelta en la primera: dice que está armada, y se puede aprobar.
-    fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
-    expect(await screen.findByText(/esta, armada/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Aprobar" })).toBeEnabled(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
-    expect(f.guardarAprobada).toHaveBeenLastCalledWith(
+    expect(f.guardarAprobada).toHaveBeenCalledWith(
       "ev-501",
       null,
-      pedida("RAZON ev-501"),
+      expect.anything(),
       "aprobada",
     );
+    expect(
+      await screen.findByRole("button", { name: /Facturar la aprobada/ }),
+    ).toBeEnabled();
   });
 
   it("una guardada armada se abre armada, a nombre de quien la armó, y la ventana parte en ella", async () => {
