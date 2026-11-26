@@ -19,7 +19,7 @@ export type LecturaDeSerie = {
   razon: string;
   /** Para el reciclaje (decisión 72): roja, cercana y del rubro. */
   etiquetas: string[] | null;
-  /** Con qué se leyó (`LECTURA_ACTUAL`): si cambió, se relee el color. */
+  /** Con qué se leyó (`lecturaActual` del rubro): si cambió, se relee el color. */
   modelo: string | null;
   /** Migración 157 (decisión 63): las ediciones anteriores según la IA
    *  (null: todavía no lo revisa), por qué, y si la empresa la descartó. */

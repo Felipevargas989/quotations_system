@@ -1,6 +1,6 @@
 # Mapa: Acceso, empresa, usuarios, roles y planes
 
-> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116), y el 18-09-2026 con las páginas legales (§2) y Cancelar mi plan (§3, §5.9 punto 9), y el 27-10-2026 con el personaje y el color de cada uno (§2, §3 y §4, migración 167). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: editar o eliminar un usuario olvida su perfil al instante (por `user_id`). Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (§5.9, `PUT /permisos/tipos`, doc 22 §9). Actualizado el 09-11-2026 con la puerta que reconoce la sesión iniciada (§2 y §5.1, `SiYaEntro`).
+> **Estado: verificado una vez contra el código** (commit bd6a0e1, 11-09-2026), actualizado el 11-09-2026 con las migraciones 107-109 y el estado del sprint 1, revisada la columna de llamadores el 14-09-2026, ampliado el 14-09-2026 con los módulos propios (§5.7) y el candado por plan (§5.8, migración 112), el 16-09-2026 con el alta por cuenta propia (§5.5) y el cobro con Mercado Pago (§5.9, migración 114), el 18-09-2026 con la separación Mi cuenta / Mi empresa (§2) y el cambio de plan con proporcional (§5.9, migración 115), el 18-09-2026 con el origen del registro (§5.5 punto 6 y §5.6, migración 116), y el 18-09-2026 con las páginas legales (§2) y Cancelar mi plan (§3, §5.9 punto 9), y el 27-10-2026 con el personaje y el color de cada uno (§2, §3 y §4, migración 167). Parte del atlas de docs/arquitectura/mapa; el índice es 00_MAPA_DEL_SISTEMA.md. Actualizado el 03-11-2026: editar o eliminar un usuario olvida su perfil al instante (por `user_id`). Actualizado el 05-11-2026 con los tipos de cliente de cada cargo (§5.9, `PUT /permisos/tipos`, doc 22 §9). Actualizado el 09-11-2026 con la puerta que reconoce la sesión iniciada (§2 y §5.1, `SiYaEntro`). El 25-11-2026, el alta de Licita (§5.5.1), solo en una rama de trabajo.
 
 ## 1. Qué hace
 
@@ -224,6 +224,12 @@ paso 4 del roadmap volvió a crear la empresa de verdad.
    opcional; la app reintenta sin la marca si el motor la rechazara
    (mismo seguro que la 110). Se ve en la Torre (§5.6). Prueba:
    `super-admin/tests/alta-por-cuenta-propia.spec.ts`.
+
+#### 5.5.1 El alta de Licita, con Google (25-11-2026)
+
+> **Estado: solo en una rama de trabajo** (worktree `wt-licita`, sin commit). No está en el laboratorio ni en producción. Detalle en `24_OPORTUNIDADES.md` §13.2.
+
+En la segunda instalación (`INSTALACION=licita`) no existe `POST /users/signup` (el portero la cierra por ruta exacta). La persona entra con Google y la app llama `POST /licita/alta` (`api-rest/src/licita/`) con su pase de Supabase como `Bearer` y `{ nombre_empresa }`. El correo y el nombre salen de Auth con la llave de servicio. Crea la empresa (`estado_plan: 'prueba'`, `prueba_vence` a 14 días, `plan: 'crece'`, `modulos_propios: ['oportunidades']`, `currency: 'CLP'`) con `CompaniesRepository.create` y la persona administradora con `UsersRepository.createUser`; sin siembra de eventos ni correos; idempotente (si ya tiene fila devuelve su empresa); si falla la persona borra la empresa. Fuera de Licita responde 404. En Licita corren además dos relojes de `PlanCronService`: 11:00 `bloquearPruebasVencidas` y 11:10 `cosecharCobrosVencidos`; el aviso de las 11:05 (`avisarPruebasPorVencer`) queda apagado. De `pagos` quedan abiertas solo `POST suscribir`, `GET estado`, `POST cancelar` y `POST webhook`; `plans` y `pagos/cambiar-plan*`, cerradas.
 
 ### 5.6 Torre de Control (super-admin)
 

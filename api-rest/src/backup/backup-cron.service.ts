@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PinoLogger } from 'nestjs-pino';
+import { esLicita } from 'src/instalacion/instalacion';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { gzipSync } from 'zlib';
 
@@ -41,6 +42,11 @@ import { gzipSync } from 'zlib';
  * 300 MB, que se vuelven a bajar de sii.cl; con su registro de cargas, que
  * restaurado solo diría «lista» con la tabla vacía, y su diccionario de
  * actividades.
+ * Y las dos del rubro de cada empresa (Licita, 25-11-2026, borradores
+ * `POR_NUMERAR_catalogo_onu.sql` y `POR_NUMERAR_marcas_por_empresa.sql`):
+ * `mercado_productos_onu`, el catálogo ONU que el cargador llena desde los
+ * mismos datos abiertos, y `mercado_marcas`, qué compras del mercado son de
+ * cada empresa, que la base rehace desde sus reglas. Las dos se rearman.
  */
 export const FUERA_DEL_RESPALDO = new Set([
   'mp_procesos',
@@ -55,6 +61,8 @@ export const FUERA_DEL_RESPALDO = new Set([
   'mercado_compras',
   'mercado_gasto_por_comprador_mes',
   'mercado_ganadores_por_mes',
+  'mercado_productos_onu',
+  'mercado_marcas',
   'sii_cargas',
   'sii_contribuyentes',
   'sii_actividades',
@@ -78,6 +86,7 @@ export class BackupCronService implements OnModuleInit {
   }
 
   onModuleInit() {
+    if (esLicita()) return; // Licita (25-11): este respaldo es de Eventia.
     if (!this.enabled) return;
     // No bloquear el arranque: verificar/backupear a los 20 segundos.
     setTimeout(() => {

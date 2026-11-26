@@ -21,6 +21,8 @@ import { CustomerSatisfactionSurveyModule } from './customer_satisfaction_survey
 import { EmailModule } from './email/email.module';
 import { FacturacionModule } from './facturacion/facturacion.module';
 import { HealthController } from './health/health.controller';
+import { PorteroDeLaInstalacionGuard } from './instalacion/portero-de-la-instalacion.guard';
+import { LicitaModule } from './licita/licita.module';
 import { LogisticsModule } from './logistics/logistics.module';
 import { MarketingModule } from './marketing/marketing.module';
 import { MovilModule } from './movil/movil.module';
@@ -106,6 +108,9 @@ import { UsersModule } from './users/users.module';
     FacturacionModule,
     // El robot de órdenes de compra de la rutina de correo (doc 23).
     RobotOcModule,
+    // Licita (25-11): el alta con Google. Sus rutas responden 404 fuera de
+    // INSTALACION=licita.
+    LicitaModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -114,6 +119,13 @@ import { UsersModule } from './users/users.module';
       useClass: PanelInvalidationInterceptor,
     },
 
+    // La instalación (Licita, 25-11): con INSTALACION=licita, lo que no es
+    // de Oportunidades ni de la lista mínima responde 404. En Eventia deja
+    // pasar todo. PRIMERO: antes de pedir la sesión.
+    {
+      provide: APP_GUARD,
+      useClass: PorteroDeLaInstalacionGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

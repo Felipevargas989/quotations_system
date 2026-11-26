@@ -2,6 +2,7 @@ module.exports = {
     rootDir: '../',
     roots: ['<rootDir>/src'],
     testMatch: ['**/?(*.)+(spec).ts'],
+    setupFiles: ['<rootDir>/src/testing/sin-variables-de-instalacion.ts'],
     preset: 'ts-jest',
     testEnvironment: 'node',
     moduleNameMapper: {

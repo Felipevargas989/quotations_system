@@ -87,6 +87,9 @@
       "<rootDir>/src"
     ],
     "testRegex": ".*\\.spec\\.ts$",
+    "setupFiles": [
+      "<rootDir>/src/testing/sin-variables-de-instalacion.ts"
+    ],
     "preset": "ts-jest",
     "transform": {
       "^.+\\.(t|j)s$": [

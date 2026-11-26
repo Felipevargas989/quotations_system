@@ -1,12 +1,18 @@
 import type { FilaDelCsv } from './csv';
 import {
+  anotarProducto,
+  type CatalogoOnu,
   codigoDelRubro,
   esPeso,
   fecha,
+  juntarOnu,
   limpio,
   codigo as llave,
   nombreDelRubro,
   numero,
+  prefijosOnu,
+  REGLAS_DE_EVENTOS,
+  type ReglasDelRubro,
 } from './datos-abiertos';
 
 // LAS COMPRAS ÁGILES DE UN MES (decisión 101 del doc 17). El archivo trae
@@ -38,6 +44,8 @@ export type CompraAgilDelMercado = {
   monto_elegido: number | null;
   criterio: string | null;
   productos: string | null;
+  /** Los códigos ONU de sus productos con sus prefijos de 4, 6 y 8 dígitos. */
+  onu: string[];
 };
 
 export type CotizacionDelMercado = {
@@ -90,6 +98,11 @@ const organismoDe = (f: FilaDelCsv) =>
 export async function comprasAgilesDelMes(
   leer: () => AsyncIterable<FilaDelCsv>,
   mes: string,
+  reglas: ReglasDelRubro = REGLAS_DE_EVENTOS,
+  /** Solo en una instalación «general»: anota cada producto ONU de TODAS
+   *  las compras ágiles (la primera lectura), con su nombre genérico. Sin
+   *  él, lo de siempre. */
+  catalogo?: CatalogoOnu,
 ): Promise<ComprasAgilesDelMes> {
   // 1. Todas: a qué unidad pertenece cada una, lo elegido y el rubro.
   const unidadDe = new Map<string, string>();
@@ -122,9 +135,17 @@ export async function comprasAgilesDelMes(
           monto_rubro: 0,
         });
       }
-      if (nombreDelRubro(f['NombreCotizacion'])) delRubro.add(codigo);
+      if (nombreDelRubro(f['NombreCotizacion'], reglas)) delRubro.add(codigo);
     }
-    if (codigoDelRubro(f['CodigoProducto'])) delRubro.add(codigo);
+    if (codigoDelRubro(f['CodigoProducto'], reglas)) delRubro.add(codigo);
+    if (catalogo) {
+      anotarProducto(
+        catalogo,
+        f['CodigoProducto'],
+        f['NombreProductoGenerico'],
+        codigo,
+      );
+    }
     if (elegida(f)) {
       elegidoDe.set(
         codigo,
@@ -145,9 +166,11 @@ export async function comprasAgilesDelMes(
     }
   }
 
-  // 2. Solo las del rubro, con cada cotización.
+  // 2. Solo las del rubro, con cada cotización y sus códigos ONU (un Set
+  //    por solicitud guardada: las demás no se guardan en detalle).
   const solicitudes = new Map<string, CompraAgilDelMercado>();
   const productos = new Map<string, Set<string>>();
+  const onu = new Map<string, Set<string>>();
   const cotizaciones = new Map<string, CotizacionDelMercado>();
   for await (const f of leer()) {
     if (!delRubro.has((f['CodigoCotizacion'] ?? '').trim())) continue;
@@ -174,10 +197,13 @@ export async function comprasAgilesDelMes(
         monto_elegido: null,
         criterio: null,
         productos: null,
+        onu: [],
       };
       solicitudes.set(codigo, s);
       productos.set(codigo, new Set());
+      onu.set(codigo, new Set());
     }
+    juntarOnu(onu.get(codigo)!, f['CodigoProducto']);
     const producto = limpio(f['NombreProductoGenerico'], 80);
     if (producto) productos.get(codigo)!.add(producto);
     const rut = limpio(f['RUTProveedor'], 20);
@@ -215,6 +241,7 @@ export async function comprasAgilesDelMes(
   }
   for (const [codigo, s] of solicitudes) {
     s.productos = limpio([...productos.get(codigo)!].join(' · '), 300);
+    s.onu = prefijosOnu(onu.get(codigo)!);
   }
   return {
     solicitudes: [...solicitudes.values()],

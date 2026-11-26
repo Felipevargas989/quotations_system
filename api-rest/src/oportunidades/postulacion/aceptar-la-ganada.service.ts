@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { hayCotizador } from 'src/instalacion/instalacion';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import type { CreatePaymentPlanDto } from 'src/payments/dto/create-payment-plan.dto';
 import { PaymentsService } from 'src/payments/payments.service';
@@ -75,6 +76,9 @@ export class AceptarLaGanadaService {
     quotationId: string,
     codigo: string,
   ): Promise<CotizacionAceptada | null> {
+    // Licita: sin cotizador no hay cotización que aceptar. Lo llaman el
+    // resultado que llega solo y «Ganada» a mano: se salta, sin aviso.
+    if (!hayCotizador()) return null;
     try {
       const q = await this.repo.cotizacion(companyId, { id: quotationId });
       if (!q || !SE_ACEPTA.includes(q.quotation_status)) return null;

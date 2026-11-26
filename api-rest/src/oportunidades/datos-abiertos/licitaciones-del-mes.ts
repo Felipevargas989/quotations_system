@@ -1,12 +1,18 @@
 import type { FilaDelCsv } from './csv';
 import {
+  anotarProducto,
+  type CatalogoOnu,
   codigoDelRubro,
   esPeso,
   fecha,
+  juntarOnu,
   limpio,
   codigo as llave,
   nombreDelRubro,
   numero,
+  prefijosOnu,
+  REGLAS_DE_EVENTOS,
+  type ReglasDelRubro,
 } from './datos-abiertos';
 
 // LAS LICITACIONES DE UN MES (decisión 101 del doc 17). El archivo trae una
@@ -40,6 +46,8 @@ export type LicitacionDelMercado = {
   lineas: number;
   rubros: string[];
   del_rubro: boolean;
+  /** Los códigos ONU de sus líneas con sus prefijos de 4, 6 y 8 dígitos. */
+  onu: string[];
 };
 
 export type OfertaDelMercado = {
@@ -81,10 +89,15 @@ const suma = (a: number | null, b: number | null) =>
 export async function licitacionesDelMes(
   filas: AsyncIterable<FilaDelCsv>,
   mes: string,
+  reglas: ReglasDelRubro = REGLAS_DE_EVENTOS,
+  /** Solo en una instalación «general»: anota cada producto ONU con su
+   *  nombre genérico. Sin él, lo de siempre. */
+  catalogo?: CatalogoOnu,
 ): Promise<LicitacionesDelMes> {
   const licitaciones = new Map<string, LicitacionDelMercado>();
   const lineas = new Map<string, Set<string>>();
   const rubros = new Map<string, Set<string>>();
+  const onu = new Map<string, Set<string>>();
   const ofertas = new Map<string, OfertaDelMercado>();
   const lineasDeLaOferta = new Map<string, Set<string>>();
   let total = 0;
@@ -117,17 +130,28 @@ export async function licitacionesDelMes(
         oferentes: numero(f['NumeroOferentes']),
         lineas: 0,
         rubros: [],
-        del_rubro: nombreDelRubro(f['Nombre']),
+        del_rubro: nombreDelRubro(f['Nombre'], reglas),
+        onu: [],
       };
       licitaciones.set(codigo, l);
       lineas.set(codigo, new Set());
       rubros.set(codigo, new Set());
+      onu.set(codigo, new Set());
     }
     const linea = llave(f['Correlativo']);
     lineas.get(codigo)!.add(linea);
     const rubro = limpio(f['Rubro2'], 120);
     if (rubro) rubros.get(codigo)!.add(rubro);
-    if (!l.del_rubro && codigoDelRubro(f['CodigoProductoONU'])) {
+    juntarOnu(onu.get(codigo)!, f['CodigoProductoONU']);
+    if (catalogo) {
+      anotarProducto(
+        catalogo,
+        f['CodigoProductoONU'],
+        f['Nombre producto genrico'],
+        codigo,
+      );
+    }
+    if (!l.del_rubro && codigoDelRubro(f['CodigoProductoONU'], reglas)) {
       l.del_rubro = true;
     }
 
@@ -178,6 +202,7 @@ export async function licitacionesDelMes(
   for (const [codigo, l] of licitaciones) {
     l.lineas = lineas.get(codigo)!.size;
     l.rubros = [...rubros.get(codigo)!].slice(0, 5);
+    l.onu = prefijosOnu(onu.get(codigo)!);
   }
   return {
     licitaciones: [...licitaciones.values()],

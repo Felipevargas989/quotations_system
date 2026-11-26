@@ -79,6 +79,7 @@ import { PreguntasController } from './preguntas/preguntas.controller';
 import { PreguntasRepository } from './preguntas/preguntas.repository';
 import { PreguntasService } from './preguntas/preguntas.service';
 import { RadarService } from './radar.service';
+import { RubroDeLaEmpresaService } from './rubro/rubro-de-la-empresa.service';
 import { ResumenDeNegocioService } from './seguimiento/resumen-de-negocio.service';
 import { SeguimientoController } from './seguimiento/seguimiento.controller';
 
@@ -123,6 +124,7 @@ import { SeguimientoController } from './seguimiento/seguimiento.controller';
     DatosAbiertosService,
     DatosAbiertosCronService,
     MercadoDeLaZonaRepository,
+    RubroDeLaEmpresaService,
     PreguntasRepository,
     PreguntasService,
     ResumenDeNegocioService,

@@ -55,6 +55,7 @@ import {
   type CotizacionAceptada,
 } from './postulacion/aceptar-la-ganada.service';
 import { itemsDeLaRevision } from './postulacion/las-preguntas';
+import { rubroDeLaInstalacion } from './rubro/rubro-de-la-instalacion';
 
 // LA PANTALLA DE OPORTUNIDADES (doc 17 §5.3 y §5.7, sprint 2). Lo que la
 // empresa ve y decide. La lectura de la IA no se edita aquí: es la foto
@@ -132,8 +133,18 @@ export class OportunidadesService {
   /** Lo de la zona (decisión 106): el mercado de ChileCompra, todo Chile con
    *  todas las ofertas; si todavía no tiene nada cargado, la historia que
    *  bajó el radar. El rubro es «la marca» (decisión 112). */
-  private async procesosDeLaZona(config: ConfigOportunidades | null) {
+  private async procesosDeLaZona(
+    config: ConfigOportunidades | null,
+    companyId: number,
+  ) {
     const regiones = config?.regiones ?? [];
+    // En «general» (Licita) cada empresa lee con su propio rubro, y vacío es
+    // vacío: el respaldo del radar traería toda la región sin filtro.
+    if (rubroDeLaInstalacion() === 'general') {
+      return this.mercado
+        ? this.mercado.procesosDeLaZona(regiones, companyId)
+        : [];
+    }
     const delMercado = this.mercado
       ? await this.mercado.procesosDeLaZona(regiones)
       : [];
@@ -144,11 +155,36 @@ export class OportunidadesService {
 
   /** «Quién ganó el año anterior» (decisión 109): de la capa resumida del
    *  mercado; mientras esté vacía, de la historia que bajó el radar. */
-  private async historialDeOrganismos(organismos: string[]) {
+  private async historialDeOrganismos(organismos: string[], companyId: number) {
+    // En «general», con el rubro de la empresa y sin el respaldo del radar
+    // (lo adjudicado de esos compradores en cualquier rubro).
+    if (rubroDeLaInstalacion() === 'general') {
+      if (!this.mercado) return [];
+      const config = await this.repo.configDe(companyId);
+      return (
+        (await this.mercado.historialDeOrganismos(organismos, {
+          companyId,
+          regiones: config?.regiones ?? [],
+        })) ?? []
+      );
+    }
     const delMercado = this.mercado
       ? await this.mercado.historialDeOrganismos(organismos)
       : null;
     return delMercado ?? this.repo.historialDeOrganismos(organismos);
+  }
+
+  /** Lo que ya salió este año (decisión 110). En «general», las compras
+   *  ágiles de los archivos son las que marcó la empresa. */
+  private recientesDeLaZona(
+    config: ConfigOportunidades | null,
+    companyId: number,
+  ) {
+    const regiones = config?.regiones ?? [];
+    if (!this.mercado) return [];
+    return rubroDeLaInstalacion() === 'general'
+      ? this.mercado.recientesDeLaZona(regiones, companyId)
+      : this.mercado.recientesDeLaZona(regiones);
   }
 
   /** La bandeja: por omisión solo lo vigente, de lo que cierra antes a lo
@@ -189,6 +225,7 @@ export class OportunidadesService {
         filas
           .map((f) => f.proceso.organismo_codigo)
           .filter((c): c is string => Boolean(c)),
+        companyId,
       ),
     );
     return filas.map((f) => ({
@@ -288,12 +325,31 @@ export class OportunidadesService {
   }
 
   async ficha(companyId: number, id: number) {
-    const ficha = await this.repo.ficha(companyId, id);
+    return this.completarFicha(companyId, await this.repo.ficha(companyId, id));
+  }
+
+  /** La misma ficha, por el código de Mercado Público (Licita, 25-11-2026):
+   *  las pantallas de Licita conocen la licitación por su código. */
+  async fichaPorCodigo(companyId: number, codigo: string) {
+    const limpio = codigo.trim();
+    return this.completarFicha(
+      companyId,
+      limpio ? await this.repo.fichaPorCodigo(companyId, limpio) : null,
+    );
+  }
+
+  private async completarFicha(
+    companyId: number,
+    ficha: FichaDeOportunidad | null,
+  ) {
     if (!ficha) throw new NotFoundException('No encontramos esa oportunidad.');
     const [cambios, pasados, historiaPendiente] = await Promise.all([
       this.repo.cambiosDe(ficha.codigo),
       ficha.proceso.organismo_codigo
-        ? this.historialDeOrganismos([ficha.proceso.organismo_codigo])
+        ? this.historialDeOrganismos(
+            [ficha.proceso.organismo_codigo],
+            companyId,
+          )
         : Promise.resolve([]),
       this.fichas.diasDeHistoriaPendientes(),
     ]);
@@ -443,9 +499,9 @@ export class OportunidadesService {
       this.repo.datosDeEmpresa(companyId),
     ]);
     const [procesos, recientes] = await Promise.all([
-      this.procesosDeLaZona(config),
+      this.procesosDeLaZona(config, companyId),
       // Decisión 110: lo que ya salió este año, licitación o compra ágil.
-      this.mercado?.recientesDeLaZona(config?.regiones ?? []) ?? [],
+      this.recientesDeLaZona(config, companyId),
     ]);
     const comunasCercanas = config?.comunas_cercanas ?? [];
     const umbralAltoValor = empresa?.high_value_threshold ?? null;
@@ -464,7 +520,9 @@ export class OportunidadesService {
   /** Quién gana en las regiones de la empresa (los últimos 3 años). */
   async competidores(companyId: number) {
     const config = await this.repo.configDe(companyId);
-    return rankingDeCompetidores(await this.procesosDeLaZona(config));
+    return rankingDeCompetidores(
+      await this.procesosDeLaZona(config, companyId),
+    );
   }
 
   /** La ficha de un proveedor: lo que ganó en las regiones de la empresa. */
@@ -474,7 +532,7 @@ export class OportunidadesService {
     }
     const config = await this.repo.configDe(companyId);
     const ficha = fichaDeCompetidor(
-      await this.procesosDeLaZona(config),
+      await this.procesosDeLaZona(config, companyId),
       rut.trim(),
     );
     if (!ficha) {

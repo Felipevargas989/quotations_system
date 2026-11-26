@@ -11,6 +11,7 @@ import { normalizarRut } from '../historia/ganadores';
 import { fichaDeCompetidor } from '../historia/mercado';
 import { OferenteRepository } from '../oferente/oferente.repository';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { rubroDeLaInstalacion } from '../rubro/rubro-de-la-instalacion';
 import {
   ActasDeLaZonaService,
   desdeTresAnios,
@@ -105,8 +106,15 @@ export class CompetenciaService {
   }
 
   /** Lo de la zona: el mercado de ChileCompra (decisión 109); si todavía no
-   *  tiene nada, la historia que bajó el radar. */
-  private async procesosDeLaZona(regiones: string[]) {
+   *  tiene nada, la historia que bajó el radar. En «general» (Licita), lo
+   *  que marcó la empresa con su propio rubro, y vacío es vacío: el
+   *  respaldo del radar traería toda la región sin filtro. */
+  private async procesosDeLaZona(regiones: string[], companyId: number) {
+    if (rubroDeLaInstalacion() === 'general') {
+      return this.mercado
+        ? this.mercado.procesosDeLaZona(regiones, companyId)
+        : [];
+    }
     const delMercado = this.mercado
       ? await this.mercado.procesosDeLaZona(regiones)
       : [];
@@ -139,7 +147,7 @@ export class CompetenciaService {
     ];
     const [actas, procesos] = await Promise.all([
       this.repo.actasDe(conLaEmpresa),
-      this.procesosDeLaZona(config?.regiones ?? []),
+      this.procesosDeLaZona(config?.regiones ?? [], companyId),
     ]);
     const deLaZona = fichaDeCompetidor(procesos, limpio);
     const ficha = fichaDeMercado({
@@ -167,7 +175,7 @@ export class CompetenciaService {
       this.repo.filasDelRubro(
         companyId,
         desdeTresAnios(),
-        etiquetaDelRubro(MODELO_HAIKU),
+        etiquetaDelRubro(MODELO_HAIKU, rubroDeLaInstalacion()),
       ),
       this.rubro.estado(companyId),
     ]);

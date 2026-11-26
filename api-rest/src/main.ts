@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { validateEnv } from './config/validate-env';
+import { prepararLosRelojes } from './instalacion/relojes';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -13,6 +14,9 @@ async function bootstrap() {
     rawBody: true,
     bufferLogs: true,
   });
+  // Licita (25-11): con INSTALACION=licita corren solo los relojes de
+  // Oportunidades. Antes de `listen`, que es cuando Nest los echa a andar.
+  const relojesApagados = prepararLosRelojes(app);
   // Fase 2: sin configuración crítica el servidor NO parte (lanza acá,
   // con mensaje claro en el log del deploy). Las importantes-no-vitales
   // solo se advierten, más abajo, cuando el logger ya existe.
@@ -63,6 +67,13 @@ async function bootstrap() {
   });
 
   app.useLogger(app.get(Logger));
+  if (relojesApagados) {
+    app
+      .get(Logger)
+      .log(
+        `Instalación Licita: ${relojesApagados.length} relojes ajenos a Oportunidades apagados`,
+      );
+  }
   if (faltantes.length > 0) {
     app
       .get(Logger)

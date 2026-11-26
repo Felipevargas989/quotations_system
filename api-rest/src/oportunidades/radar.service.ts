@@ -4,9 +4,9 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { PrepararLaLicitacionService } from './analisis/preparar-la-licitacion.service';
 import { HistoriaService } from './historia/historia.service';
 import {
-  LECTURA_ACTUAL,
   LecturaDetenida,
   LecturaService,
+  lecturaActual,
   type Uso,
 } from './lectura/lectura.service';
 import { aplicarReglas } from './lectura/reglas';
@@ -28,10 +28,11 @@ import type {
   ProcesoMp,
 } from './mercado-publico/tipos';
 import {
+  OportunidadesRepository,
   type ConfigOportunidades,
   type EmpresaConModulo,
-  OportunidadesRepository,
 } from './oportunidades.repository';
+import { rubroDeLaInstalacion } from './rubro/rubro-de-la-instalacion';
 
 // EL RADAR (doc 17 §5.1 y §5.2).
 //
@@ -635,7 +636,7 @@ export class RadarService {
               empresa.id,
               codigo,
               final,
-              LECTURA_ACTUAL,
+              lecturaActual(rubroDeLaInstalacion()),
               true,
             );
             r.con_detalle++;
@@ -711,7 +712,7 @@ export class RadarService {
         // (decisión 19).
         const { hechas, releer } = await this.repo.lecturasDe(
           empresa.id,
-          LECTURA_ACTUAL,
+          lecturaActual(rubroDeLaInstalacion()),
         );
         // Lo que cierra antes se lee primero: si la corrida se corta, lo
         // urgente ya quedó leído.
@@ -761,7 +762,7 @@ export class RadarService {
               empresa.id,
               proceso.codigo,
               final,
-              LECTURA_ACTUAL,
+              lecturaActual(rubroDeLaInstalacion()),
               relectura,
             );
           } catch (error) {

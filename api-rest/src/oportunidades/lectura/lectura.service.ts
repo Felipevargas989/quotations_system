@@ -10,7 +10,16 @@ import {
   type Repeticion,
   repeticionValida,
 } from '../historia/repeticion';
+import {
+  DEFINICION_DEL_RUBRO,
+  instruccionesDeCandidatas,
+  type PerfilDeEmpresa,
+  type Rubro,
+  rubroDeLaInstalacion,
+} from '../rubro/rubro-de-la-instalacion';
 import { type Lectura, lecturaValida } from './reglas';
+
+export type { PerfilDeEmpresa } from '../rubro/rubro-de-la-instalacion';
 
 // LA LECTURA CON IA (doc 17 §5.2). Cada proceso nuevo se lee UNA vez por
 // empresa con Claude Haiku 5.5 — Felipe, 16-10: "para lectura yo creo que
@@ -24,32 +33,36 @@ export const MODELO_LECTURA = 'claude-haiku-5-5';
  *  cambian, lo abierto que nadie ha tocado se relee solo en la pasada
  *  siguiente (decisión 19 del doc 17). Cambiarlo al cambiar las reglas.
  *  11-11: el monto mínimo de la empresa (decisión 129). */
-export const LECTURA_ACTUAL = `${MODELO_LECTURA}, reglas del 11-11, monto mínimo`;
+export const lecturaActual = (rubro: Rubro = 'eventos'): string =>
+  `${MODELO_LECTURA}, ${DEFINICION_DEL_RUBRO[rubro].reglasDeLectura}`;
 
-const ESQUEMA = {
-  type: 'object',
-  properties: {
-    semaforo: { type: 'string', enum: ['verde', 'amarillo', 'rojo'] },
-    etiquetas: {
-      type: 'array',
-      items: {
-        type: 'string',
-        enum: [
-          'evento',
-          'alimentacion',
-          'alojamiento',
-          'capacitacion_con_salon',
-          'paseo',
-          'otro',
-        ],
+/** La de eventos, la de siempre (Valle del Sol). Una instalación con otro
+ *  rubro anota `lecturaActual(rubroDeLaInstalacion())`, que nunca se
+ *  confunde con esta. */
+export const LECTURA_ACTUAL = lecturaActual('eventos');
+
+/** La salida fija de la lectura: las etiquetas son las del rubro. */
+const esquemaCon = <E extends readonly string[]>(etiquetas: E) =>
+  ({
+    type: 'object',
+    properties: {
+      semaforo: { type: 'string', enum: ['verde', 'amarillo', 'rojo'] },
+      etiquetas: {
+        type: 'array',
+        items: {
+          type: 'string',
+          enum: etiquetas,
+        },
       },
+      se_hace_en_el_complejo: { type: 'string', enum: ['si', 'no', 'dudoso'] },
+      razon: { type: 'string' },
     },
-    se_hace_en_el_complejo: { type: 'string', enum: ['si', 'no', 'dudoso'] },
-    razon: { type: 'string' },
-  },
-  required: ['semaforo', 'etiquetas', 'se_hace_en_el_complejo', 'razon'],
-  additionalProperties: false,
-} as const;
+    required: ['semaforo', 'etiquetas', 'se_hace_en_el_complejo', 'razon'],
+    additionalProperties: false,
+  }) as const;
+
+export const esquemaDeLectura = (rubro: Rubro = 'eventos') =>
+  esquemaCon(DEFINICION_DEL_RUBRO[rubro].etiquetas);
 
 const ESQUEMA_DE_CANDIDATAS = {
   type: 'object',
@@ -59,21 +72,6 @@ const ESQUEMA_DE_CANDIDATAS = {
   required: ['candidatas'],
   additionalProperties: false,
 } as const;
-
-/** El filtro de la historia (doc 17 §5.1, punto 6): de las licitaciones de un
- *  día, solo por el nombre, las que podrían ser de un negocio de eventos.
- *  Amplio a propósito: lo que pasa este filtro se pide entero y se lee con
- *  calma; lo que no pasa, no se mira más. */
-const INSTRUCCIONES_DE_CANDIDATAS = [
-  'Te paso una lista numerada de nombres de licitaciones de Mercado Público (Chile).',
-  'Devuelve los números de las que PODRÍAN ser de servicios para un complejo de eventos, turismo y gastronomía:',
-  'eventos, ceremonias, celebraciones, aniversarios, fiestas, galas, día del profesor, día del funcionario, día de la madre, navidad;',
-  'alimentación preparada (almuerzos, cenas, coffee break, colaciones, cócteles, banquetería, catering);',
-  'alojamiento u hospedaje; arriendo de salones, recintos o centros de eventos;',
-  'capacitaciones, jornadas, seminarios o talleres que necesiten un lugar; paseos, viajes recreativos, giras, campamentos, actividades de esparcimiento.',
-  'NO devuelvas compras de insumos, materiales, equipos, vehículos, obras, mantención, salud, aseo, ni servicios profesionales sin evento.',
-  'Ante la duda, inclúyela.',
-].join('\n');
 
 /** Lo que la IA necesita saber del proceso. */
 export type ProcesoParaLeer = {
@@ -88,14 +86,6 @@ export type ProcesoParaLeer = {
   monto: number | null;
   fecha_cierre: string | null;
   productos: Array<{ nombre?: string | null; descripcion?: string | null }>;
-};
-
-/** Lo que la IA necesita saber de la empresa. */
-export type PerfilDeEmpresa = {
-  nombre: string;
-  perfil: string | null;
-  paquetes: string[];
-  fijos: string[];
 };
 
 /** La lectura no puede seguir en esta corrida (llave mala, sin cupo):
@@ -114,35 +104,12 @@ const recortar = (t: string | null | undefined, max: number): string => {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 };
 
-export const instruccionesPara = (empresa: PerfilDeEmpresa): string =>
-  [
-    `Lees licitaciones y compras ágiles de Mercado Público (Chile) para la empresa "${empresa.nombre}" y decides si le sirven.`,
-    'La categoría que pone el comprador suele estar mal: decide por el nombre, la descripción y los productos que pide.',
-    '',
-    'LA EMPRESA',
-    empresa.perfil?.trim() || '(sin descripción)',
-    '',
-    'SU CATÁLOGO EN EVENTIA',
-    `Paquetes: ${empresa.paquetes.join('; ') || '(ninguno)'}`,
-    `Servicios fijos: ${empresa.fijos.join('; ') || '(ninguno)'}`,
-    '',
-    'RESPONDE',
-    '- etiquetas: qué pide el proceso, una o varias de: evento, alimentacion, alojamiento, capacitacion_con_salon, paseo, otro. Usa "otro" solo si no pide nada de las demás.',
-    '- se_hace_en_el_complejo: "si" si el servicio se puede prestar en las instalaciones de la empresa o el lugar lo propone el oferente; "no" si exige hacerlo en dependencias del comprador o en otra ciudad, si es comida a domicilio o si es solo entrega de productos; "dudoso" si no lo dice.',
-    '  Las celebraciones son la excepción: ceremonias, cenas y almuerzos de celebración, aniversarios, fiestas (también de fin de año), paseos, jornadas recreativas o de autocuidado y días del funcionario, del profesor o del dirigente, para un grupo, se hacen en un centro de eventos, porque un comprador público no tiene salón de banquetes. Si la empresa tiene recinto propio y la celebración no dice dónde, es "si". Las capacitaciones, jornadas de trabajo y talleres que no dicen dónde siguen "dudoso": suelen hacerse donde el comprador.',
-    '  Un evento público del comprador (feria, festival, show, fonda, malón, teletón o actividad abierta a la comunidad) se hace en un espacio suyo (plaza, gimnasio, estadio): es "no", salvo que pida un recinto que proponga el oferente. Un evento para sus funcionarios o para un grupo cerrado sigue la regla de las celebraciones.',
-    '- semaforo: "verde" si es del rubro de la empresa y se_hace_en_el_complejo es "si"; "amarillo" si es del rubro pero hay una duda que conviene revisar (lugar "dudoso", mezcla con cosas que no vende); "rojo" si no es del rubro, si exige hacerse fuera de la empresa o si es compra de productos.',
-    '  Una capacitación, curso, taller o seminario en que se compra el curso, el relator, el monitor o el contenido NO es del rubro de una empresa que pone el lugar: "rojo". Es del rubro cuando piden el lugar (salón), la alimentación o el alojamiento para la actividad.',
-    '  Lo que la descripción de la empresa marca POR EVALUAR va "amarillo", aunque se haga fuera de la empresa: lo quiere ver para decidir. En ese caso se_hace_en_el_complejo dice la verdad ("no" si es donde el comprador) y la razón dice que está por evaluar. Si lo POR EVALUAR pide un monto mínimo y el proceso informa un monto menor, no está por evaluar: sigue la regla de siempre.',
-    '- razon: una frase corta en español que diga por qué.',
-    '',
-    'EJEMPLOS (casos reales de Mercado Público)',
-    '- «Curso de capacitación manejo avanzado de heridas»: compran el curso, no el lugar → rojo.',
-    '- «Salón implementado para capacitación y servicio de alimentación»: piden el salón y la comida → del rubro (si no dice dónde, amarillo).',
-    '- «Servicio de producción para shows de la Teletón», de una municipalidad: evento público en la comuna → rojo.',
-    '- «Jornada de autocuidado, deportiva y recreativa para funcionarios»: jornada de un grupo cerrado, como una celebración → si no dice dónde, "si".',
-    '- «Servicio de coffee break para 30 participantes» por $150.000, con el catering POR EVALUAR desde $1.000.000: no llega al monto → la regla de siempre (rojo si se sirve donde el comprador).',
-  ].join('\n');
+/** Las instrucciones de la lectura del radar: el texto es del rubro
+ *  (eventos, el de siempre, por defecto). */
+export const instruccionesPara = (
+  empresa: PerfilDeEmpresa,
+  rubro: Rubro = 'eventos',
+): string => DEFINICION_DEL_RUBRO[rubro].lectura(empresa);
 
 export const descripcionDe = (p: ProcesoParaLeer): string => {
   const productos = (p.productos ?? [])
@@ -203,11 +170,13 @@ export class LecturaService {
   /**
    * El filtro de la historia: de `filas`, los códigos cuyo nombre podría ser
    * del rubro. null si no se pudo (el día queda pendiente). Lanza
-   * LecturaDetenida si falla la cuenta.
+   * LecturaDetenida si falla la cuenta. El rubro es el de la instalación;
+   * `perfil` solo lo usa el rubro `general` (el de eventos no lo lee).
    */
   async candidatasPorNombre(
     filas: Array<{ codigo: string; nombre: string }>,
     uso?: Uso,
+    perfil: string | null = null,
   ): Promise<Set<string> | null> {
     if (filas.length === 0) return new Set();
     try {
@@ -221,7 +190,7 @@ export class LecturaService {
         system: [
           {
             type: 'text',
-            text: INSTRUCCIONES_DE_CANDIDATAS,
+            text: instruccionesDeCandidatas(rubroDeLaInstalacion(), perfil),
             cache_control: { type: 'ephemeral' },
           },
         ],
@@ -266,6 +235,7 @@ export class LecturaService {
     empresa: PerfilDeEmpresa,
     uso?: Uso,
   ): Promise<Lectura | null> {
+    const rubro = rubroDeLaInstalacion();
     try {
       const respuesta = await this.cliente().messages.parse({
         model: MODELO_LECTURA,
@@ -274,12 +244,12 @@ export class LecturaService {
         max_tokens: 4000,
         output_config: {
           effort: 'low',
-          format: jsonSchemaOutputFormat(ESQUEMA),
+          format: jsonSchemaOutputFormat(esquemaDeLectura(rubro)),
         },
         system: [
           {
             type: 'text',
-            text: instruccionesPara(empresa),
+            text: instruccionesPara(empresa, rubro),
             cache_control: { type: 'ephemeral' },
           },
         ],
@@ -294,7 +264,7 @@ export class LecturaService {
       // Lo que contestó se revisa antes de usarlo (18-10: un color que no
       // era verde, amarillo ni rojo tumbó la pasada de las 23:07).
       const valida = respuesta.parsed_output
-        ? lecturaValida(respuesta.parsed_output)
+        ? lecturaValida(respuesta.parsed_output, rubro)
         : null;
       if (respuesta.stop_reason === 'refusal' || !valida) {
         this.logger.warn(

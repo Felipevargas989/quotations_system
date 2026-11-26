@@ -29,6 +29,7 @@ import { ActualizarOportunidadDto } from './dto/actualizar-oportunidad.dto';
 import { DescartarSerieDto } from './dto/descartar-serie.dto';
 import { FirmarDocumentosDto, GenerarAnexosDto } from './dto/generacion.dto';
 import { GuardarConfigOportunidadesDto } from './dto/guardar-config.dto';
+import { GuardarRubroDto } from './dto/guardar-rubro.dto';
 import { ListarOportunidadesDto } from './dto/listar-oportunidades.dto';
 import { CambiarLoQueSabemosDto } from './dto/lo-que-sabemos.dto';
 import { MarcarExigenciaDto } from './dto/marcar-exigencia.dto';
@@ -54,6 +55,7 @@ import {
 import { OportunidadesRepository } from './oportunidades.repository';
 import { OportunidadesService } from './oportunidades.service';
 import { RadarService } from './radar.service';
+import { RubroDeLaEmpresaService } from './rubro/rubro-de-la-empresa.service';
 
 // La pantalla de Oportunidades (doc 17, sprint 2) y el radar.
 //
@@ -84,6 +86,7 @@ export class OportunidadesController {
     private readonly logger: PinoLogger,
     private readonly loQueSabemos: LoQueSabemosService,
     private readonly lecturaCorta: LecturaCortaService,
+    private readonly rubroDeLaEmpresa: RubroDeLaEmpresaService,
   ) {
     this.logger.setContext(OportunidadesController.name);
   }
@@ -105,6 +108,25 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     return this.servicio.guardarConfig(user.company_id, dto);
+  }
+
+  /** El rubro de la empresa (solo en una instalación de rubro «general»;
+   *  en Eventia, 400): lo guardado y si el perfil cambió desde entonces. */
+  @Get('config/rubro')
+  rubro(@CurrentUser() user: User) {
+    return this.rubroDeLaEmpresa.leer(user.company_id);
+  }
+
+  /** «Leer mi rubro desde el perfil»: la propuesta de la IA, sin guardar. */
+  @Post('config/rubro/proponer')
+  proponerRubro(@CurrentUser() user: User) {
+    return this.rubroDeLaEmpresa.proponer(user.company_id);
+  }
+
+  /** Guarda el rubro y rehace las marcas de la empresa en el mercado. */
+  @Patch('config/rubro')
+  guardarRubro(@Body() dto: GuardarRubroDto, @CurrentUser() user: User) {
+    return this.rubroDeLaEmpresa.guardar(user.company_id, dto);
   }
 
   /** Corre el radar ahora. Responde al tiro: la corrida sigue sola y queda
@@ -329,6 +351,16 @@ export class OportunidadesController {
     @CurrentUser() user: User,
   ) {
     return this.oferente.borrarDocumento(user.company_id, documentoId);
+  }
+
+  /** La ficha por el código de Mercado Público (`2656-97-LE26`), para la
+   *  empresa de la sesión: lo mismo que `GET :id`, o 404 si esa empresa no
+   *  la tiene (Licita, 25-11-2026; vale en las dos instalaciones). Va con
+   *  las rutas fijas, antes de las de :id: «codigo» es un segmento fijo y
+   *  ninguna ruta fija empieza así. */
+  @Get('codigo/:codigo')
+  fichaPorCodigo(@Param('codigo') codigo: string, @CurrentUser() user: User) {
+    return this.servicio.fichaPorCodigo(user.company_id, codigo);
   }
 
   @Get(':id')

@@ -9,6 +9,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { ClientsService } from 'src/clients/clients.service';
 import type { CreateClientDto } from 'src/clients/dto/create-client.dto';
+import { exigirElCotizador } from 'src/instalacion/no-disponible';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import type { CreateQuotationDto } from 'src/quotations/dto/create-quotation.dto';
@@ -220,6 +221,7 @@ export class CotizacionDeLaPostulacionService {
     companyId: number,
     oportunidadId: number,
   ): Promise<EstadoDeLaCotizacion> {
+    exigirElCotizador('La cotización de la postulación');
     const o = await this.oportunidad(companyId, oportunidadId);
     const [propuesta, analisis, cotizacion] = await Promise.all([
       this.ofertaDeLaPropuesta(companyId, oportunidadId),
@@ -270,6 +272,7 @@ export class CotizacionDeLaPostulacionService {
     total?: number,
     fechas?: Partial<FechasDeLaCotizacion>,
   ): Promise<EstadoDeLaCotizacion> {
+    exigirElCotizador('La cotización de la postulación');
     try {
       const companyId = user.company_id;
       const o = await this.oportunidad(companyId, oportunidadId);
@@ -436,6 +439,7 @@ export class CotizacionDeLaPostulacionService {
     oportunidadId: number,
     numero: number,
   ): Promise<EstadoDeLaCotizacion> {
+    exigirElCotizador('La cotización de la postulación');
     const companyId = user.company_id;
     const o = await this.oportunidad(companyId, oportunidadId);
     // Decisión 104: a una ganada sin cotización se le vincula la suya, que
@@ -623,6 +627,9 @@ export class CotizacionDeLaPostulacionService {
     cotizacion: CotizacionDeLaPostulacion;
     matriz: FilaDeLaMatriz[];
   }> {
+    // Licita: sin catálogo no sale; «Armar postulación» lo dice como
+    // problema y sigue con lo demás (`laBaseDelPrecio` no lanza).
+    exigirElCotizador('La cotización con los precios del catálogo');
     const o = await this.oportunidad(companyId, oportunidadId);
     const propuesta = await this.ofertaDeLaPropuesta(companyId, oportunidadId);
     if (!propuesta) {

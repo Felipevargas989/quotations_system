@@ -4,7 +4,7 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { costoEnDolares } from '../analisis/comun';
 import { MercadoDeLaZonaRepository } from '../datos-abiertos/mercado-de-la-zona.repository';
 import {
-  LECTURA_ACTUAL,
+  lecturaActual,
   LecturaDetenida,
   LecturaService,
   MODELO_LECTURA,
@@ -13,6 +13,7 @@ import {
 } from '../lectura/lectura.service';
 import { aplicarReglas, esDelRubro, type Semaforo } from '../lectura/reglas';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { rubroDeLaInstalacion } from '../rubro/rubro-de-la-instalacion';
 import type { ProcesoDeLaZona, SeViene } from './mercado';
 import {
   aniosConEdiciones,
@@ -119,6 +120,8 @@ export class SeVieneService {
     const codigos = [...new Set(series.map((s) => s.ultima.codigo))];
     const leidas = await this.repo.lecturas(companyId, codigos);
     const porCodigo = new Map(procesos.map((p) => [p.codigo, p]));
+    // Las reglas con que se lee en esta instalación (eventos o general).
+    const actual = lecturaActual(rubroDeLaInstalacion());
 
     const ahora = Date.now();
     const tareas: Tarea[] = [];
@@ -126,8 +129,7 @@ export class SeVieneService {
       const l = leidas.get(codigo);
       // Leída con otras reglas: se relee el color, no si se repite. Las
       // descartadas no, ya no se miran.
-      const releer =
-        l !== undefined && l.modelo !== LECTURA_ACTUAL && !l.descartada_en;
+      const releer = l !== undefined && l.modelo !== actual && !l.descartada_en;
       if (l && l.ediciones !== null && !releer) continue;
       const fallo = this.fallidas.get(`${companyId}:${codigo}`);
       if (fallo && ahora - fallo <= REINTENTAR_MS) continue;
@@ -263,7 +265,12 @@ export class SeVieneService {
         comunasCercanas: opciones.comunasCercanas,
         umbralAltoValor: opciones.umbralAltoValor,
       });
-      await this.repo.guardar(companyId, t.codigo, final, LECTURA_ACTUAL);
+      await this.repo.guardar(
+        companyId,
+        t.codigo,
+        final,
+        lecturaActual(rubroDeLaInstalacion()),
+      );
       return true;
     };
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { hayCotizador } from 'src/instalacion/instalacion';
 import { BUCKET_PRIVADO } from 'src/storage/storage.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 
@@ -9,6 +10,10 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 // módulos —la carta (mapa 05) y las cotizaciones (mapa 01), y desde el
 // 19-10 las facturas y órdenes de compra de sus eventos— sin escribir
 // nada, sin precios de la carta y siempre de UNA empresa.
+//
+// Licita (25-11, sin cotizador): no hay carta, eventos ni Post-venta. Cada
+// lectura vuelve vacía sin ir a la base: «¿Puedo cumplir?», los documentos
+// y la experiencia trabajan con lo demás (Mercado Público y «Mi empresa»).
 
 export type CartaDeEventia = {
   /** Los fijos activos con su sección: salones, audiovisual, decoración. */
@@ -131,6 +136,7 @@ export class EventiaRepository {
   /** La carta, sin precios: fijos activos, menús guardados con sus platos
    *  y nombres de paquetes. */
   async carta(companyId: number): Promise<CartaDeEventia> {
+    if (!hayCotizador()) return { fijos: [], menus: [], paquetes: [] };
     const [fijos, menus, paquetes] = await Promise.all([
       this.db
         .from('fixed_services')
@@ -187,6 +193,7 @@ export class EventiaRepository {
     desde: string,
     limite = 200,
   ): Promise<EventoDeEventia[]> {
+    if (!hayCotizador()) return [];
     const { data, error } = await this.db
       .from('quotations')
       .select(COLUMNAS_DE_EVENTO)
@@ -209,6 +216,7 @@ export class EventiaRepository {
     antesDe: string,
     limite = 1000,
   ): Promise<EventoDeEventia[]> {
+    if (!hayCotizador()) return [];
     const { data, error } = await this.db
       .from('quotations')
       .select(COLUMNAS_DE_EVENTO)
@@ -230,6 +238,7 @@ export class EventiaRepository {
     companyId: number,
     antesDe: string,
   ): Promise<DocumentosDeUnEvento[]> {
+    if (!hayCotizador()) return [];
     const { data, error } = await this.db
       .from('event_documents')
       .select(
@@ -273,6 +282,8 @@ export class EventiaRepository {
   /** Una factura u orden de compra de un evento, del balde privado; solo
    *  de la empresa. */
   async descargarDocumento(companyId: number, ruta: string): Promise<Buffer> {
+    if (!hayCotizador())
+      throw new Error('Esta instalación no tiene Post-venta.');
     if (!ruta.startsWith(`c${companyId}/event-documents/`)) {
       throw new Error('Ese documento no es de la empresa.');
     }
@@ -290,6 +301,7 @@ export class EventiaRepository {
     companyId: number,
     fecha: string,
   ): Promise<EventoDeEventia[]> {
+    if (!hayCotizador()) return [];
     const inicio = `${fecha}T00:00:00.000Z`;
     const fin = `${fecha}T23:59:59.999Z`;
     const { data, error } = await this.db

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { derechosDe, tieneDerecho } from 'src/auth/derechos';
+import { hayCotizador } from 'src/instalacion/instalacion';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { MarcaDeExigencia } from './ficha/ficha.repository';
 import type { ProcesoPasado } from './historia/anterior';
@@ -45,6 +46,14 @@ export type ConfigOportunidades = {
   perfil: string | null;
   /** Decisión 129 (migración 204): lo que pide menos queda en rojo. */
   monto_minimo?: number | null;
+  /** El rubro de la empresa, solo en una instalación «general» (Licita,
+   *  migración POR_NUMERAR_rubro_de_cada_empresa; en Eventia no vienen):
+   *  prefijos ONU de 4, 6 u 8 dígitos, palabras, exclusiones y la huella
+   *  del perfil del que salió (`rubro/rubro-de-la-empresa.ts`). */
+  onu_familias?: string[] | null;
+  palabras?: string[] | null;
+  palabras_no?: string[] | null;
+  rubro_leido_de?: string | null;
 };
 
 const COLUMNAS_DE_LISTA =
@@ -393,6 +402,8 @@ export class OportunidadesRepository {
   async catalogoResumido(
     companyId: number,
   ): Promise<{ paquetes: string[]; fijos: string[] }> {
+    // Licita (25-11): sin catálogo; el radar lee solo con el perfil.
+    if (!hayCotizador()) return { paquetes: [], fijos: [] };
     const [paquetes, fijos] = await Promise.all([
       this.db
         .from('service_group_collections')
@@ -709,6 +720,23 @@ export class OportunidadesRepository {
       .select(COLUMNAS_DE_FICHA)
       .eq('company_id', companyId)
       .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as unknown as FichaDeOportunidad | null) ?? null;
+  }
+
+  /** La misma ficha, por el código de Mercado Público (Licita, 25-11-2026).
+   *  Una empresa tiene a lo más una oportunidad por código (la llave
+   *  `company_id, codigo`). null = esa empresa no la tiene. */
+  async fichaPorCodigo(
+    companyId: number,
+    codigo: string,
+  ): Promise<FichaDeOportunidad | null> {
+    const { data, error } = await this.db
+      .from('oportunidades')
+      .select(COLUMNAS_DE_FICHA)
+      .eq('company_id', companyId)
+      .eq('codigo', codigo)
       .maybeSingle();
     if (error) throw error;
     return (data as unknown as FichaDeOportunidad | null) ?? null;

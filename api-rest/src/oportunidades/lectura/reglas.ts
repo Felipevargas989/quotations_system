@@ -1,18 +1,21 @@
 import { normalizar } from '../mercado-publico/mapeo';
+import {
+  ETIQUETAS_DE_EVENTOS,
+  type ETIQUETAS_GENERALES,
+  etiquetasDe,
+  type Rubro,
+} from '../rubro/rubro-de-la-instalacion';
 
 // LAS REGLAS QUE MANDAN SOBRE LA IA (doc 17 §5.2). Funciones puras.
 
 export type Semaforo = 'verde' | 'amarillo' | 'rojo';
 
-export const ETIQUETAS = [
-  'evento',
-  'alimentacion',
-  'alojamiento',
-  'capacitacion_con_salon',
-  'paseo',
-  'otro',
-] as const;
-export type Etiqueta = (typeof ETIQUETAS)[number];
+/** Las del rubro de eventos (las de siempre). Las de cada rubro viven en
+ *  `rubro/rubro-de-la-instalacion.ts`. */
+export const ETIQUETAS = ETIQUETAS_DE_EVENTOS;
+export type Etiqueta =
+  | (typeof ETIQUETAS_DE_EVENTOS)[number]
+  | (typeof ETIQUETAS_GENERALES)[number];
 
 /** Lo que devuelve la IA por cada proceso. */
 export type Lectura = {
@@ -44,13 +47,18 @@ const limpio = (v: unknown): string =>
  *  fila —oportunidades_semaforo_check— y se cayó la pasada entera de las
  *  23:07). Se limpia lo que se puede («Rojo.» es rojo) y las etiquetas que
  *  no existen se botan. null = no se puede usar: queda en amarillo para
- *  revisar a mano, como cuando la IA no contesta. */
-export const lecturaValida = (salida: {
-  semaforo?: unknown;
-  etiquetas?: unknown;
-  se_hace_en_el_complejo?: unknown;
-  razon?: unknown;
-}): Lectura | null => {
+ *  revisar a mano, como cuando la IA no contesta. Las etiquetas que valen
+ *  son las del rubro (eventos por defecto). */
+export const lecturaValida = (
+  salida: {
+    semaforo?: unknown;
+    etiquetas?: unknown;
+    se_hace_en_el_complejo?: unknown;
+    razon?: unknown;
+  },
+  rubro: Rubro = 'eventos',
+): Lectura | null => {
+  const validas = etiquetasDe(rubro);
   const semaforo = SEMAFOROS.find((s) => s === limpio(salida.semaforo));
   const lugar = LUGARES.find(
     (l) => l === limpio(salida.se_hace_en_el_complejo),
@@ -58,7 +66,7 @@ export const lecturaValida = (salida: {
   if (!semaforo || !lugar) return null;
   const etiquetas = (Array.isArray(salida.etiquetas) ? salida.etiquetas : [])
     .map(limpio)
-    .filter((e): e is Etiqueta => (ETIQUETAS as readonly string[]).includes(e));
+    .filter((e): e is Etiqueta => validas.includes(e));
   return {
     semaforo,
     etiquetas: etiquetas.length > 0 ? [...new Set(etiquetas)] : ['otro'],

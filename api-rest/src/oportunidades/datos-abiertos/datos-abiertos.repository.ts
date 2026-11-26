@@ -16,6 +16,11 @@ import type {
 // cotizaciones se borran y se vuelven a escribir. Después, la base resume
 // el mes (decisión 109, migración 172): claves limpias, control de calidad
 // y los resúmenes que leen «Se viene» y los competidores.
+//
+// Cada licitación y compra ágil va entera, con su columna `onu` (los códigos
+// ONU con sus prefijos, 25-11-2026): la base necesita esa columna en
+// `mercado_licitaciones` y `mercado_compras_agiles` ANTES de que este motor
+// cargue un mes; sin ella, PostgREST rechaza el lote y el mes queda en error.
 
 /** Lo que no calzó al resumir un mes: cuántas compras y ofertas, cuántas sin
  *  región o sin comuna, y cuántas con un RUT que no es un RUT chileno
@@ -36,7 +41,27 @@ export type CargaDelMercado = {
   /** null = falta resumirlo. No viene si la base no tiene la migración 172. */
   resumida_en?: string | null;
   calidad?: CalidadDelMes | null;
+  /** Solo en una instalación «general» (migración
+   *  POR_NUMERAR_rubro_de_cada_empresa): con qué unión de reglas de las
+   *  empresas se cargó el mes. En Eventia nunca se escribe. */
+  reglas_huella?: string | null;
 };
+
+/** Las reglas de una empresa, para la unión de la carga mensual. */
+export type ReglasGuardadas = {
+  company_id: number;
+  onu_familias: string[] | null;
+  palabras: string[] | null;
+};
+
+/** El tipo de `mercado_compras` de cada fuente. */
+export const TIPO_DE_LA_FUENTE: Readonly<Record<Fuente, string>> = {
+  licitaciones: 'licitacion',
+  compra_agil: 'compra_agil',
+};
+
+/** De a cuántos productos se anota el catálogo. */
+const LOTE_DE_PRODUCTOS = 1000;
 
 /** De a cuántas filas se escribe. */
 const LOTE = 500;
@@ -140,6 +165,45 @@ export class DatosAbiertosRepository {
     );
     if (error) throw error;
     return (data ?? {}) as CalidadDelMes;
+  }
+
+  // ── Solo en una instalación «general» (Licita, 25-11). Eventia no llama
+  //    nada de esto: sus tablas y columnas pueden no existir en su base. ──
+
+  /** Las reglas de todas las empresas que tienen alguna (para la unión). */
+  async reglasDeLasEmpresas(): Promise<ReglasGuardadas[]> {
+    const { data, error } = await this.db
+      .from('oportunidades_config')
+      .select('company_id, onu_familias, palabras');
+    if (error) throw error;
+    return ((data ?? []) as ReglasGuardadas[]).filter(
+      (r) => (r.onu_familias ?? []).length > 0 || (r.palabras ?? []).length > 0,
+    );
+  }
+
+  /** Suma al catálogo `mercado_productos_onu` los productos vistos en un mes
+   *  (`mercado_anotar_productos_onu`: guarda el nombre y las veces del mes
+   *  con más procesos, así recargar un mes no infla la cuenta). */
+  async anotarProductosOnu(
+    productos: ReadonlyArray<{ codigo: string; nombre: string; veces: number }>,
+  ): Promise<void> {
+    for (const lote of lotes(productos, LOTE_DE_PRODUCTOS)) {
+      const { error } = await this.db.rpc('mercado_anotar_productos_onu', {
+        p_productos: lote,
+      });
+      if (error) throw error;
+    }
+  }
+
+  /** Rehace las marcas de todas las empresas con reglas para un mes recién
+   *  resumido (`mercado_marcar_mes`). Devuelve cuántas marcas quedaron. */
+  async marcarMes(fuente: Fuente, mes: string): Promise<number> {
+    const { data, error } = await this.supabase.clientParaTrabajosLargos.rpc(
+      'mercado_marcar_mes',
+      { p_mes: mes, p_tipo: TIPO_DE_LA_FUENTE[fuente] },
+    );
+    if (error) throw error;
+    return Number(data ?? 0);
   }
 
   async guardarComprasAgiles(

@@ -1,4 +1,8 @@
 import { normalizarRut } from '../historia/ganadores';
+import {
+  DEFINICION_DEL_RUBRO,
+  type Rubro,
+} from '../rubro/rubro-de-la-instalacion';
 
 // QUIÉN GANA LO QUE TÚ HACES (decisión 71 del doc 17, 23-10). Felipe: "siento
 // que estoy como en un mar de productores de eventos y yo no soy productor
@@ -104,22 +108,20 @@ export const ESQUEMA_DEL_RUBRO = {
  *  comunales, ferias y festivales, y una concesión de casino. */
 export const VERSION_DEL_RUBRO = 2;
 
-/** Lo que queda anotado en `oportunidades_rubro.modelo`. */
-export const etiquetaDelRubro = (modelo: string): string =>
-  `${modelo}#v${VERSION_DEL_RUBRO}`;
+/** Lo que queda anotado en `oportunidades_rubro.modelo`. En eventos, la de
+ *  siempre (`#v2`, de VERSION_DEL_RUBRO); en general, la suya
+ *  (`#general-v1`): nunca se confunden. */
+export const etiquetaDelRubro = (
+  modelo: string,
+  rubro: Rubro = 'eventos',
+): string => `${modelo}#${DEFINICION_DEL_RUBRO[rubro].versionDeCompetidores}`;
 
-export const instruccionesDelRubro = (perfil: string | null): string =>
-  [
-    'Revisas licitaciones públicas de Chile para una empresa que da estos servicios:',
-    perfil?.trim() ||
-      '(complejo turístico con salones, restaurante y cabañas, que da alimentación y eventos)',
-    '',
-    'Una línea es DEL RUBRO solo si el proveedor da COMIDA, un SALÓN o recinto, o ALOJAMIENTO a un grupo de personas: almuerzos, cenas, desayunos, onces, cóctel, coffee break, colaciones, banquetería o catering para una actividad; paseos y jornadas recreativas o de autocuidado con comida o en un recinto; arriendo de salón o de centro de eventos; alojamiento.',
-    'Las celebraciones de funcionarios o de grupos (día del funcionario, del profesor, del asistente de la educación, de la madre, del adulto mayor, aniversarios institucionales, navidad o fin de año, convivencias) son del rubro aunque digan "producción de evento", porque llevan comida o recinto.',
-    'NO son del rubro: la producción técnica o artística (audio, amplificación, iluminación, escenarios, pantallas, carpas, animación, artistas, shows, "producción técnica y artística"); los festivales, ferias, exposiciones, conciertos, fiestas costumbristas y aniversarios comunales abiertos al público, salvo que la línea diga que el proveedor da la comida; las concesiones de casino o cafetería permanentes; la compra o el suministro de alimentos o abarrotes; el transporte; la capacitación y los cursos; impresiones, regalos, vestuario, aseo y todo lo demás.',
-    'Si la línea no deja claro que el proveedor da comida, salón o alojamiento, es "no". Ante la duda, "no".',
-    'Cada licitación viene con su código, su nombre y sus líneas numeradas. Por cada una responde: "codigo" tal cual; "del_rubro": "si" si todas sus líneas son del rubro, "parcial" si solo algunas, "no" si ninguna; "lineas": los números de las líneas del rubro (vacío si "no"); y una "razon" de menos de 12 palabras.',
-  ].join('\n');
+/** Las instrucciones de Competidores: el texto es del rubro (eventos, el
+ *  de siempre, por defecto). */
+export const instruccionesDelRubro = (
+  perfil: string | null,
+  rubro: Rubro = 'eventos',
+): string => DEFINICION_DEL_RUBRO[rubro].competidores(perfil);
 
 export type ClasificacionDelRubro = {
   codigo: string;

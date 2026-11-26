@@ -6,6 +6,7 @@ import { mensajeDe } from 'src/logging/mensaje-de-error';
 import { costoEnDolares, MODELO_HAIKU } from '../analisis/comun';
 import { regionCalza } from '../mercado-publico/mapeo';
 import { OportunidadesRepository } from '../oportunidades.repository';
+import { rubroDeLaInstalacion } from '../rubro/rubro-de-la-instalacion';
 import { desdeTresAnios } from './actas.service';
 import { CompetenciaRepository } from './competencia.repository';
 import {
@@ -61,7 +62,10 @@ export class RubroService {
   private async deLaZona(companyId: number) {
     const [config, clasificadas] = await Promise.all([
       this.oportunidades.configDe(companyId),
-      this.repo.clasificadas(companyId, etiquetaDelRubro(MODELO_HAIKU)),
+      this.repo.clasificadas(
+        companyId,
+        etiquetaDelRubro(MODELO_HAIKU, rubroDeLaInstalacion()),
+      ),
     ]);
     const regiones = config?.regiones ?? [];
     const adjudicadas = (await this.repo.zonaLigera(desdeTresAnios())).filter(
@@ -105,6 +109,7 @@ export class RubroService {
     if (this.enCurso.has(companyId)) return 0;
     this.enCurso.add(companyId);
     let hechas = 0;
+    const rubro = rubroDeLaInstalacion();
     try {
       const { pendientes, perfil } = await this.deLaZona(companyId);
       for (let i = 0; i < pendientes.length; i += POR_PEDIDO_AL_RUBRO) {
@@ -129,7 +134,7 @@ export class RubroService {
           system: [
             {
               type: 'text',
-              text: instruccionesDelRubro(perfil ?? null),
+              text: instruccionesDelRubro(perfil ?? null, rubro),
               cache_control: { type: 'ephemeral' },
             },
           ],
@@ -166,7 +171,7 @@ export class RubroService {
               fecha: p.fecha_publicacion?.slice(0, 10) ?? null,
             };
           }),
-          etiquetaDelRubro(MODELO_HAIKU),
+          etiquetaDelRubro(MODELO_HAIKU, rubro),
         );
         hechas += validos.length;
         this.logger.info(
