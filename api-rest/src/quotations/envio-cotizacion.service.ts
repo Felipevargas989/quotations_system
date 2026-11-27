@@ -32,7 +32,7 @@ import { QuotationsRepository } from './quotations.repository';
 const ESTADO_ANTES_DE_ENVIAR = QuotationStatus.SOLICITADA;
 const ESTADO_TRAS_ENVIAR = QuotationStatus.ENVIADA;
 
-const MARCA_DE_ENVIO = 'Cotización enviada por correo';
+export const MARCA_DE_ENVIO = 'Cotización enviada por correo';
 const MARCA_DE_CIERRE = 'Aviso de cierre enviado por correo';
 
 type CotizacionConCliente = Quotation & {
@@ -102,7 +102,7 @@ export class EnvioCotizacionService {
    * contacto de la cotización (por vínculo real o por nombre) y su
    * correo; si no hay, el correo del cliente.
    */
-  private async correoDeDestino(q: CotizacionConCliente): Promise<{
+  async correoDeDestino(q: CotizacionConCliente): Promise<{
     correo: string | null;
     nombre: string | null;
   }> {
@@ -130,8 +130,9 @@ export class EnvioCotizacionService {
     };
   }
 
-  /** Imprime la hoja pública con el navegador invisible. */
-  private async generarPdf(quotationId: string): Promise<Buffer> {
+  /** Imprime la hoja pública con el navegador invisible. También la usa el
+   *  envío con BelIA (doc 20 §19): el mismo PDF, jamás otro diseño. */
+  async generarPdf(quotationId: string): Promise<Buffer> {
     const token = firmarTokenImpresion(quotationId, this.secreto(), Date.now());
     const url = `${this.frontendUrl()}/imprimir/${token}`;
     // En Railway el binario empaquetado de @sparticuz/chromium; en una
@@ -297,6 +298,19 @@ export class EnvioCotizacionService {
     // correos de seguimiento de los días 7 y 14 (migración 51). Sin ella,
     // lo enviado con este botón nunca los recibía (Felipe, 10-10-2026:
     // 19 cotizaciones de Valle del Sol quedaron sin fecha desde el 04-10).
+    await this.marcarEnviada(q, user);
+
+    return { enviado_a: destino.correo };
+  }
+
+  /** Solicitada pasa a Enviada, con la fecha de envío y la línea del cambio
+   *  en el Seguimiento (lo de abajo). Lo usan «Enviar cotización» y el envío
+   *  con BelIA (doc 20 §19). Nunca rompe: el correo ya salió. */
+  async marcarEnviada(
+    q: Pick<Quotation, 'id' | 'quotation_status'>,
+    user: User,
+  ): Promise<void> {
+    const quotationId = q.id;
     if (q.quotation_status === ESTADO_ANTES_DE_ENVIAR) {
       let marcada = false;
       try {
@@ -325,8 +339,6 @@ export class EnvioCotizacionService {
         );
       }
     }
-
-    return { enviado_a: destino.correo };
   }
 
   // ---- El aviso de cierre al rechazar (Felipe, 04-11-2026) ----

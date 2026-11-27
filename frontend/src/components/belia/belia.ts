@@ -265,7 +265,9 @@ const deQueEs = (p: { numero: number | null; tipo?: string }): string =>
     ? "Lección para anotar"
     : p.tipo === "leccion_estado"
       ? "Decisión sobre una lección"
-      : `Propuesta ${p.numero != null ? `de la N° ${p.numero}` : "de un evento nuevo"}`;
+      : p.tipo === "envio"
+        ? `Envío por correo de la N° ${p.numero ?? "?"}`
+        : `Propuesta ${p.numero != null ? `de la N° ${p.numero}` : "de un evento nuevo"}`;
 
 /** Los turnos y lo que pesan, como mucho, al guardarse en Eventia (el motor
  *  recibe hasta 100 KB). */

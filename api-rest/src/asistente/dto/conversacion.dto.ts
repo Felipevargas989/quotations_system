@@ -32,7 +32,9 @@ export class TurnoGuardadoDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(10)
+  // 25 desde el 27-11-2026: «Envía las solicitadas» deja hasta 20 tarjetas
+  // en un turno (doc 20 §19).
+  @ArrayMaxSize(25)
   @IsObject({ each: true })
   propuestas?: Record<string, unknown>[];
 }

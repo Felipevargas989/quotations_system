@@ -44,6 +44,30 @@ export class PropuestasRepository {
     return (data as unknown as CotizacionParaCambiar | null) ?? null;
   }
 
+  /** Las cotizaciones solicitadas de la empresa (no los requerimientos),
+   *  por fecha del evento: las que BelIA puede enviar (doc 20 §19). */
+  async solicitadas(companyId: Company['id']): Promise<
+    Array<{
+      id: string;
+      quotation_number: number;
+      event_date: string | null;
+      clients: { name: string | null; client_type: string | null } | null;
+    }>
+  > {
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select('id, quotation_number, event_date, clients ( name, client_type )')
+      .eq('company_id', companyId)
+      .eq('quotation_status', 'solicitada')
+      .eq('request_type', 'cotizacion')
+      .order('event_date', { ascending: true })
+      .limit(200);
+    if (error) throw error;
+    return (data ?? []) as unknown as Awaited<
+      ReturnType<PropuestasRepository['solicitadas']>
+    >;
+  }
+
   /** Los tipos de evento activos de la empresa (Configuración), como los
    *  ofrece el cotizador. */
   async tiposDeEvento(companyId: Company['id']): Promise<string[]> {
@@ -167,6 +191,27 @@ export class PropuestasRepository {
 
   /** Una propuesta nueva reemplaza a las pendientes de la misma persona
    *  sobre la misma cotización. */
+  /** Lo guardado de los envíos que esperan el «Sí» de esta persona (doc 20
+   *  §19): antes de preparar otro, sus borradores se botan. */
+  async enviosPendientes(
+    companyId: Company['id'],
+    quotationId: string,
+    usuarioId: string,
+  ): Promise<Array<Record<string, unknown>>> {
+    const { data, error } = await this.supabase.client
+      .from('asistente_propuestas')
+      .select('despues')
+      .eq('company_id', companyId)
+      .eq('quotation_id', quotationId)
+      .eq('usuario_id', usuarioId)
+      .eq('tipo', 'envio')
+      .eq('estado', 'pendiente');
+    if (error) throw error;
+    return (data ?? []).map(
+      (f) => (f as { despues: Record<string, unknown> }).despues,
+    );
+  }
+
   async descartarPendientes(
     companyId: Company['id'],
     quotationId: string,
@@ -206,7 +251,9 @@ export type NuevaPropuesta = {
     | 'leccion'
     | 'leccion_estado'
     // Corregir un cliente mal clasificado (doc 21 §6, migración 186).
-    | 'cliente';
+    | 'cliente'
+    // Enviar una cotización solicitada (doc 20 §19, migración 217).
+    | 'envio';
   resumen: string;
   antes: Record<string, unknown>;
   despues: Record<string, unknown>;

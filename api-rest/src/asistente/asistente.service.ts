@@ -48,6 +48,7 @@ import { esRecepcion, taparPlata, tiposPara } from './herramientas/recepcion';
 import { pendientesDe } from './herramientas/seguimientos-pendientes';
 import { INSTRUCCIONES_FIJAS, instruccionesDelMomento } from './instrucciones';
 import type { TarjetaDePropuesta } from './propuestas/comun';
+import { EnvioDesdeElChat } from './propuestas/envio-desde-el-chat';
 import { PropuestasService } from './propuestas/propuestas.service';
 
 // BELIA, LA IA DE EVENTIA (doc 20; Felipe, 03-11-2026: "una ventanilla como
@@ -262,6 +263,8 @@ export class AsistenteService {
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
     // «¿Dónde está el último correo?» (doc 20 §18, sprint 2).
     @Optional() private readonly seguimiento?: SeguimientoConIAService,
+    // «Envía las solicitadas» (doc 20 §19).
+    @Optional() private readonly envios?: EnvioDesdeElChat,
   ) {
     this.logger.setContext(AsistenteService.name);
   }
@@ -350,6 +353,7 @@ export class AsistenteService {
       hoy,
       alcance: this.alcance,
       seguimiento: this.seguimiento,
+      envios: this.envios,
     };
     const sistema: Anthropic.TextBlockParam[] = [
       {

@@ -923,3 +923,53 @@ Felipe: *"BelIA ya puede redactar un correo si la recepcionista le pide sobre un
 - **Qué escribe**: la IA de «Generar seguimiento» con las mismas reglas y la guía de la casa, más el pedido de la persona («ESTA VEZ NO ES UN SEGUIMIENTO», `contexto.ts`). Salta solo si lo pedido va contra las reglas o falta un dato que no puede inventar. No mira el tope de calendario ni si el evento ya pasó. La nota de la bitácora dice «Borrador de respuesta con IA listo…».
 - **Quién**: el mismo candado de la tarjeta (`alProponerSeguimiento`): solo con cotizaciones o requerimientos de clientes que el cargo ve según Permisos por cargo.
 - La pregunta a la IA salió a `preguntar.ts` para que `seguimiento.service.ts` no pase de 800 líneas.
+
+## 19. BelIA envía las solicitadas (27-11-2026, en el laboratorio)
+
+**El pedido.** Felipe le pidió a BelIA enviar todas las cotizaciones en
+Solicitada y ella se negó: no tenía herramienta y su lista de «nunca» decía
+«enviar correos». No existía envío masivo: solo el botón «Enviar cotización»
+de cada ficha, que sale de `hola@eventi-app.com` por Resend. Felipe (27-11):
+*"que los envíe BelIA, pero que antes me muestre un detalle de qué le dirá a
+cada uno, y que salgan desde contacto@valledelsolquillon.cl no desde
+hola@eventi-app"*, con la estructura de siempre (la tabla verde, Aptos 11),
+el trato de la skill `correos-valle-del-sol`, en el mismo hilo del cliente y
+con un mini resumen de lo hablado en la bitácora.
+
+**Cómo queda.**
+1. «Envía las solicitadas» → `proponer_envio_de_cotizaciones` (vendedor para
+   arriba, sección Cotizaciones, derecho `seguimiento_con_ia`). Sin números,
+   todas las cotizaciones en Solicitada que el cargo ve (no los
+   requerimientos), por fecha del evento, hasta 20 por pedido, 5 a la vez.
+2. Por cada una, `EnvioConBeliaService.preparar`
+   (`api-rest/src/quotations/envio-belia/`): el portero del botón
+   (`reparosDelPortero`: correo de destino, total y precios en cero), se
+   salta con tope de calendario, busca el hilo SOLO en contacto@
+   (`decidirRespuesta`: el de la cotización o el último correo del cliente;
+   con un borrador ya en el hilo, se salta), la IA escribe lo de antes y lo de
+   después de la tabla (`instrucciones.ts`: la estructura de la casa más el
+   cerebro de «escribir»), Eventia pone la tabla verde con sus cifras
+   (`tabla.ts`) y la firma real de contacto@ (`firma-de-contacto.ts`, la de
+   `graph_borrador.py`), y lo deja como borrador listo, sin aviso ámbar, en el
+   hilo o en un correo nuevo. La IA también puede saltarla (pidió algo que
+   requiere decisión de Felipe, no calza con el hilo).
+3. Una tarjeta por cotización (propuesta tipo `envio`, migración 217): para,
+   copia, desde, asunto, total y el correo completo en texto. «Sí, enviar» una
+   por una o «Enviar todas (N)» arriba de las tarjetas.
+4. Con el «Sí»: la cotización tiene que seguir solicitada y sin cambios (la
+   huella) y el borrador seguir en Outlook; se le adjunta el MISMO PDF del
+   botón (`generarPdf`) y se envía con la llave de la empresa (Mail.Send). La
+   bitácora dice «Cotización enviada por correo a … desde contacto@, en su
+   hilo, con el PDF adjunto. Lo hablado: …» (firma BelIA a pedido de quien
+   aprobó; la marca cuenta como envío para las versiones) y pasa a Enviada con
+   `marcarEnviada`, lo mismo que el botón.
+5. Con el «No», el borrador se bota (Elementos eliminados).
+
+**El laboratorio nunca le escribe a un cliente**: fuera del motor de
+producción el buzón es el de ensayo (felipe@) y el correo va a ese mismo
+buzón; la tarjeta dice a quién habría ido.
+
+**Lo que cambia en las reglas.** La lista de «nunca» de BelIA queda con una
+excepción: las cotizaciones en Solicitada, con esta herramienta y el «Sí,
+enviar». Outlook ya puede enviar y botar, pero solo lo llama este servicio (lo
+cuida `outlook.spec.ts`).

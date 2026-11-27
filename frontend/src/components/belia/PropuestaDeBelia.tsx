@@ -4,6 +4,7 @@ import {
   Mail,
   NotebookPen,
   RotateCcw,
+  Send,
   TriangleAlert,
   UserPen,
 } from "lucide-react";
@@ -52,13 +53,19 @@ export default function PropuestaDeBelia({
   const deLeccion = esLeccion || esDecision;
   // Corregir un cliente mal clasificado (doc 21 §6): su tipo o su nombre.
   const esCliente = p.tipo === "cliente";
-  const Icono = esSeguimiento
-    ? Mail
-    : deLeccion
-      ? Lightbulb
-      : esCliente
-        ? UserPen
-        : NotebookPen;
+  // Enviar una cotización solicitada (doc 20 §19): el correo completo antes
+  // del «Sí, enviar».
+  const esEnvio = p.tipo === "envio";
+  const [correoCompleto, setCorreoCompleto] = useState(false);
+  const Icono = esEnvio
+    ? Send
+    : esSeguimiento
+      ? Mail
+      : deLeccion
+        ? Lightbulb
+        : esCliente
+          ? UserPen
+          : NotebookPen;
   const siDeLaDecision = {
     aprobar: "Sí, aprobar",
     descartar: "Sí, descartar",
@@ -82,13 +89,15 @@ export default function PropuestaDeBelia({
                 ? p.resumen
                 : esSeguimiento
                   ? "Seguimiento por correo"
-                  : esCliente
-                    ? "Corregir el cliente"
-                    : esNueva
-                      ? p.nueva?.es === "requerimiento"
-                        ? "Requerimiento nuevo"
-                        : "Cotización nueva"
-                      : "Propuesta"}
+                  : esEnvio
+                    ? "Envío de la cotización"
+                    : esCliente
+                      ? "Corregir el cliente"
+                      : esNueva
+                        ? p.nueva?.es === "requerimiento"
+                          ? "Requerimiento nuevo"
+                          : "Cotización nueva"
+                        : "Propuesta"}
           {p.enlace && p.numero != null && (
             <>
               {" · "}
@@ -108,6 +117,51 @@ export default function PropuestaDeBelia({
       <div className="space-y-2.5 px-3.5 py-3">
         {!esNota && !deLeccion && (
           <p className="font-medium text-slate-800">{p.resumen}</p>
+        )}
+
+        {esEnvio && p.envio && (
+          <div className="space-y-2">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-lg bg-slate-50 px-2.5 py-2 text-xs">
+              <dt className="text-slate-500">Para</dt>
+              <dd className="break-all text-slate-800">{p.envio.para}</dd>
+              {p.envio.cc.length > 0 && (
+                <>
+                  <dt className="text-slate-500">Copia</dt>
+                  <dd className="break-all text-slate-800">
+                    {p.envio.cc.join(", ")}
+                  </dd>
+                </>
+              )}
+              <dt className="text-slate-500">Desde</dt>
+              <dd className="text-slate-800">
+                {p.envio.desde}
+                {p.envio.en_hilo ? " · en su hilo" : " · correo nuevo"}
+              </dd>
+              <dt className="text-slate-500">Asunto</dt>
+              <dd className="text-slate-800">{p.envio.asunto}</dd>
+              <dt className="text-slate-500">Total</dt>
+              <dd className="font-semibold text-slate-900">
+                {p.envio.total}
+                <span className="ml-1.5 font-normal text-slate-500">
+                  · con el PDF adjunto
+                </span>
+              </dd>
+            </dl>
+            <div
+              className={`whitespace-pre-wrap rounded-lg border-l-4 border-emerald-700/40 bg-white px-3 py-2 text-[13px] leading-relaxed text-slate-800 ring-1 ring-slate-200 ${
+                correoCompleto ? "" : "max-h-40 overflow-hidden"
+              }`}
+            >
+              {p.envio.texto}
+            </div>
+            <button
+              type="button"
+              onClick={() => setCorreoCompleto((v) => !v)}
+              className="text-xs font-medium text-blue-600 hover:text-blue-800"
+            >
+              {correoCompleto ? "Plegar el correo" : "Ver el correo completo"}
+            </button>
+          </div>
         )}
 
         {deLeccion && p.leccion && (
@@ -307,18 +361,22 @@ export default function PropuestaDeBelia({
               {enviando
                 ? esSeguimiento
                   ? "Escribiendo el borrador…"
-                  : "Aplicando…"
-                : esNota || esLeccion
-                  ? "Sí, anotar"
-                  : esDecision
-                    ? siDeLaDecision
-                    : esSeguimiento
-                      ? "Sí, dejar el borrador"
-                      : esCliente
-                        ? "Sí, cambiar"
-                        : esNueva
-                          ? "Sí, crear"
-                          : "Sí, aplicar"}
+                  : esEnvio
+                    ? "Enviando…"
+                    : "Aplicando…"
+                : esEnvio
+                  ? "Sí, enviar"
+                  : esNota || esLeccion
+                    ? "Sí, anotar"
+                    : esDecision
+                      ? siDeLaDecision
+                      : esSeguimiento
+                        ? "Sí, dejar el borrador"
+                        : esCliente
+                          ? "Sí, cambiar"
+                          : esNueva
+                            ? "Sí, crear"
+                            : "Sí, aplicar"}
             </button>
             <button
               type="button"
@@ -334,15 +392,17 @@ export default function PropuestaDeBelia({
           <div className="flex items-center gap-2 pt-1 text-emerald-700">
             <Check size={16} aria-hidden="true" />
             <p className="flex-1 font-medium">
-              {esNota || esLeccion
-                ? "Anotada"
-                : esSeguimiento || esDecision
-                  ? "Listo"
-                  : esCliente
-                    ? "Cambiado"
-                    : esNueva
-                      ? "Creada"
-                      : "Aplicada"}
+              {esEnvio
+                ? "Enviada"
+                : esNota || esLeccion
+                  ? "Anotada"
+                  : esSeguimiento || esDecision
+                    ? "Listo"
+                    : esCliente
+                      ? "Cambiado"
+                      : esNueva
+                        ? "Creada"
+                        : "Aplicada"}
               {p.total_final ? ` · total ${p.total_final}` : ""}
             </p>
             {p.se_puede_deshacer && (
@@ -370,7 +430,7 @@ export default function PropuestaDeBelia({
         )}
         {p.estado === "descartada" && (
           <p className="pt-1 text-slate-500">
-            No se aplicó.
+            {esEnvio ? "No se envió: boté el borrador." : "No se aplicó."}
             {!deLeccion &&
               " Si me cuentas por qué, lo aprendo para la próxima."}
           </p>

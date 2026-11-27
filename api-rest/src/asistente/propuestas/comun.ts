@@ -21,7 +21,9 @@ export type TarjetaDePropuesta = {
     | 'leccion'
     | 'leccion_estado'
     // Corregir un cliente mal clasificado (doc 21 §6, migración 186).
-    | 'cliente';
+    | 'cliente'
+    // Enviar una cotización solicitada (doc 20 §19, migración 217).
+    | 'envio';
   /** Null en una cotización nueva: el N° lo da la base al crearla. */
   numero: number | null;
   cliente: string | null;
@@ -66,6 +68,19 @@ export type TarjetaDePropuesta = {
     motivo: string | null;
     decision?: 'aprobar' | 'descartar' | 'olvidar';
     propuesta_por?: string | null;
+  };
+  /** El correo que BelIA va a enviar (doc 20 §19): a quién, desde dónde y
+   *  el texto completo, para leerlo antes del «Sí, enviar». */
+  envio?: {
+    para: string;
+    cc: string[];
+    desde: string;
+    en_hilo: boolean;
+    asunto: string;
+    texto: string;
+    total: string;
+    /** Solo en el laboratorio: a quién habría ido. */
+    para_real: string | null;
   };
   se_puede_deshacer: boolean;
   vence_at: string;
