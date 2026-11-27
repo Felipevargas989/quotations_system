@@ -224,7 +224,10 @@ export class EnvioCotizacionService {
       );
       numeroDeVersion += (previos || []).filter(
         (f: { tipo?: string | null; note?: string | null }) =>
-          f.tipo === 'correo' && (f.note || '').startsWith(MARCA_DE_ENVIO),
+          f.tipo === 'correo' &&
+          // El envío con BelIA firma «A pedido de …: cotización enviada…»
+          // (doc 20 §19): también cuenta.
+          (f.note || '').toLowerCase().includes(MARCA_DE_ENVIO.toLowerCase()),
       ).length;
     } catch (e) {
       this.logger.error(`no se pudo leer la bitácora: ${String(e)}`);
