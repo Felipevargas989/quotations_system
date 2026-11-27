@@ -61,15 +61,16 @@ export default function ReembolsosDelEvento({
       ) : (
         <>
           {conBoton && pendiente > 0 && (
+            // Felipe, 27-11: el saldo por reembolsar, abajo del botón.
             <div className="space-y-2">
-              <span className="text-sm font-semibold text-red-700">
-                Por reembolsar {pesos(pendiente)}
-              </span>
               <RegistrarReembolsoPanel
                 quotationId={quotationId}
                 pendiente={pendiente}
                 onChanged={onChanged}
               />
+              <p className="text-sm font-semibold text-red-700">
+                Por reembolsar {pesos(pendiente)}
+              </p>
             </div>
           )}
           {registrados.length === 0 ? (
