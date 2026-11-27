@@ -569,7 +569,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     expect(screen.getByRole("button", { name: "Aprobar" })).toBeDisabled();
   });
 
-  it("«Corregir» una guardada la saca de lo guardado; aprobarla de nuevo guarda lo corregido (§9.48)", async () => {
+  it("«Corregir» una guardada no la borra; aprobarla de nuevo guarda lo corregido (§9.48, §9.61)", async () => {
     r.revisarUnoParaLaMasiva.mockResolvedValue({
       tipo: 33,
       pedida: pedida("LO DE BELIA"),
@@ -579,7 +579,7 @@ describe("Facturar seleccionados: la revisión una por una", () => {
     abrir([evento(501)], { aprobadas: [GUARDADA] });
     await screen.findByText("GUARDADA SPA");
     fireEvent.click(screen.getByRole("button", { name: "Corregir" }));
-    expect(f.quitarAprobada).toHaveBeenCalledWith("ev-501", null, null);
+    expect(f.quitarAprobada).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "corregir ev-501" }));
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }));
     expect(f.guardarAprobada).toHaveBeenCalledWith(
@@ -589,6 +589,49 @@ describe("Facturar seleccionados: la revisión una por una", () => {
         receptor: expect.objectContaining({ razon_social: "CORREGIDA SPA" }),
       }),
       "aprobada",
+    );
+  });
+
+  // §9.61 (27-11, la línea 40 de la #407): «Corregir» y «Cancelar» dejan lo
+  // guardado como estaba; «Listo» guarda lo corregido como armada.
+  it("«Corregir» y «Cancelar» no tocan lo guardado; «Listo» deja lo corregido armado", async () => {
+    r.revisarUnoParaLaMasiva.mockResolvedValue({
+      tipo: 33,
+      pedida: pedida("GUARDADA SPA"),
+      vista: vista(true),
+    });
+    f.revisarDte.mockResolvedValue(vista(true));
+    abrir([evento(501)], {
+      aprobadas: [
+        {
+          ...GUARDADA,
+          estado: "armada" as const,
+          aprobada_por_nombre: "BelIA",
+        },
+      ],
+    });
+    await screen.findByText(/BelIA · /);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Corregir" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Corregir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(f.quitarAprobada).not.toHaveBeenCalled();
+    expect(f.guardarAprobada).not.toHaveBeenCalled();
+    expect(screen.getByText("Armada")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aprobar" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Corregir" }));
+    fireEvent.click(screen.getByRole("button", { name: "corregir ev-501" }));
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(f.quitarAprobada).not.toHaveBeenCalled();
+    expect(f.guardarAprobada).toHaveBeenCalledWith(
+      "ev-501",
+      null,
+      expect.objectContaining({
+        receptor: expect.objectContaining({ razon_social: "CORREGIDA SPA" }),
+      }),
+      "armada",
     );
   });
 

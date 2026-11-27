@@ -14,7 +14,6 @@ import {
   emitirDte,
   guardarAprobada,
   prepararDte,
-  quitarAprobada,
   revisarDte,
   type DocumentoTributario,
   type DtePedido,
@@ -363,34 +362,50 @@ export default function RevisionDeLaFacturacion({
   const aprobar = (corregido?: RevisadoParaLaMasiva) =>
     guardar("aprobada", corregido);
 
+  // §9.61 (Felipe, 27-11, con la línea 40 de la #407): «Corregir» ya no
+  // borra lo guardado. Antes lo quitaba al abrir, y con «Cancelar» (o sin
+  // volver a aprobar) la factura armada se perdía y había que pedir de nuevo
+  // la nota de pedido. Ahora lo guardado sigue igual hasta que se guarda lo
+  // corregido: «Aprobar» lo reemplaza aprobado y «Listo» lo deja armado.
   const corregir = () => {
-    // Corregido, deja de estar aprobado (o armado) hasta que se guarde de
-    // nuevo.
-    if (marcados.has(item.clave) || armadas.has(item.clave))
-      seguir(
-        quitarAprobada(evento.id, item.ocId, item.linea).catch((err) =>
-          toast.error(
-            humanizeApiError(err, "No se pudo quitar la aprobación guardada."),
-          ),
-        ),
-      );
-    setAprobados((a) => {
-      const n = new Set(a);
-      n.delete(item.clave);
-      return n;
-    });
-    setArmadas((a) => {
-      const n = new Set(a);
-      n.delete(item.clave);
-      return n;
-    });
     setEnCurso(null);
     setCorrigiendo(true);
   };
 
-  /** «Listo»: vuelve al documento con lo corregido, sin aprobarlo. */
+  /** «Listo»: vuelve al documento con lo corregido, sin aprobarlo. Si la
+   *  factura ya estaba guardada, lo corregido queda guardado como armada. */
   const listo = () => {
-    if (enCurso) setCorregidos((c) => ({ ...c, [item.clave]: enCurso.dte }));
+    if (!enCurso) return;
+    const corregido = enCurso.dte;
+    const { clave } = item;
+    setCorregidos((c) => ({ ...c, [clave]: corregido }));
+    if (marcados.has(clave) || armadas.has(clave)) {
+      const eraAprobada = marcados.has(clave);
+      setAprobados((a) => {
+        const n = new Set(a);
+        n.delete(clave);
+        return n;
+      });
+      setArmadas((a) => new Set(a).add(clave));
+      seguir(
+        guardarAprobada(
+          evento.id,
+          item.ocId,
+          conSuLinea(corregido.pedida, item),
+          "armada",
+        ).catch((err) => {
+          // No se guardó: lo guardado sigue como estaba.
+          if (eraAprobada) setAprobados((a) => new Set(a).add(clave));
+          else setArmadas((a) => new Set(a).add(clave));
+          toast.error(
+            humanizeApiError(
+              err,
+              `No se pudo guardar lo corregido del #${evento.numero}.`,
+            ),
+          );
+        }),
+      );
+    }
     setCorrigiendo(false);
     setEnCurso(null);
   };
