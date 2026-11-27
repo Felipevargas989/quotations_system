@@ -3580,6 +3580,24 @@ armada a nombre de quien la armó, la OC como lista y el subtítulo corto).
 En la rama `feature/factura-armada` desde el 25-11-2026, con la migración
 216.
 
+### 9.61 «Corregir» no borra lo guardado (27-11)
+
+Con la línea 40 de la #407 (OC 4505522493 de Transportes CCU): Felipe abrió
+«Corregir» sobre la factura armada y no la volvió a aprobar. «Corregir»
+quitaba lo guardado al abrirse, así que la armada se perdió y la revisión
+volvió al borrador del motor, sin la nota de pedido (802). Se rearmó a mano
+con su respaldo.
+
+Desde hoy (solo pantalla, sin migración):
+
+- «Corregir» ya no llama a `DELETE /facturas-aprobadas`: lo guardado sigue
+  como estaba mientras se corrige.
+- «Cancelar» vuelve sin tocar nada.
+- «Listo», si la factura ya estaba guardada, guarda lo corregido como
+  armada (deja de estar aprobada hasta aprobarla de nuevo); si no estaba
+  guardada, queda solo en la ventana, como antes.
+- «Aprobar» guarda lo corregido aprobado (el motor reemplaza lo anterior).
+
 ### 9.45 Recepción solicita, y otro aprueba y emite (09-11)
 
 Felipe, 09-11, con la caja de recepción ya en producción: recepción deja de
