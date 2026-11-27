@@ -55,6 +55,7 @@ import {
   type FotoGuardada,
   type LineaDelCambio,
 } from './editar-foto';
+import { EnvioDesdeElChat } from './envio-desde-el-chat';
 import {
   LeccionesDesdeElChat,
   type Decision,
@@ -78,21 +79,14 @@ import { SeguimientoDesdeElChat } from './seguimiento-desde-el-chat';
 
 const n = (v: unknown): number => Number(v) || 0;
 
-// LA FASE 2 DE BELIA: PROPONE, Y LA PERSONA APRUEBA (doc 20 §3, regla 3;
-// Felipe, 03-11: "vamos con lo que no puede hacer para dejarla lista hoy").
-//
-// 1. La herramienta arma la propuesta (`proponerServicios`, `proponerNota`)
-//    sobre la cotización como está: el antes y el después, el total, las
-//    cuotas y los avisos. Queda guardada en `asistente_propuestas` (181) y
-//    la persona la ve en una tarjeta.
-// 2. Con su «Sí, aplicar» (`aplicar`) se revisa todo de nuevo: que sea suya,
-//    que no haya vencido, que nadie haya tocado la cotización entre medio
-//    (la huella), el cargo, el estado y los días ya servidos. Recién ahí se
-//    guarda, por la MISMA puerta del cotizador (`QuotationsService.update`,
-//    con la cuenta del dinero y la cascada del plan de pagos).
-// 3. Queda en la bitácora a nombre de BelIA y de quien lo pidió, con el
-//    antes guardado para deshacer (`deshacer`, solo lo no vendido: en una
-//    vendida la cascada del plan no tiene vuelta exacta).
+// LA FASE 2 DE BELIA: PROPONE, Y LA PERSONA APRUEBA (doc 20 §3, regla 3).
+// 1. La herramienta arma la propuesta sobre la cotización como está y la
+//    guarda en `asistente_propuestas` (181); la persona la ve en una tarjeta.
+// 2. Con su «Sí, aplicar» (`aplicar`) se revisa todo de nuevo (dueña, plazo,
+//    huella, cargo, estado, días servidos) y se guarda por la MISMA puerta del
+//    cotizador (`QuotationsService.update`, con la cascada del plan de pagos).
+// 3. Queda en la bitácora a nombre de BelIA y de quien lo pidió, con el antes
+//    para deshacer (`deshacer`, solo lo no vendido).
 
 @Injectable()
 export class PropuestasService {
@@ -114,6 +108,8 @@ export class PropuestasService {
     @Optional() private readonly alcance?: AlcanceDeRecepcion,
     // Corregir un cliente mal clasificado (doc 21 §6).
     @Optional() private readonly cambioDeCliente?: CambioDeCliente,
+    // Enviar las solicitadas (doc 20 §19).
+    @Optional() private readonly envioDelChat?: EnvioDesdeElChat,
   ) {
     this.logger.setContext(PropuestasService.name);
     this.deRecepcion = new LoQuePuedeRecepcion(this.guardadas, this.alcance);
@@ -145,17 +141,13 @@ export class PropuestasService {
     return this.leccionesDelChat;
   }
 
-  /** Las lecciones (`lecciones-desde-el-chat.ts`): anotarlas, decidirlas y
-   *  leerlas. */
+  /** Las lecciones (`lecciones-desde-el-chat.ts`). */
   proponerLeccion(usuario: User, l: LeccionPedida) {
     return this.conLecciones().proponer(usuario, l);
   }
 
-  proponerDecisionDeLeccion(
-    usuario: User,
-    d: { id: string; decision: Decision },
-  ) {
-    return this.conLecciones().proponerDecision(usuario, d);
+  proponerDecisionDeLeccion(u: User, d: { id: string; decision: Decision }) {
+    return this.conLecciones().proponerDecision(u, d);
   }
 
   leccionesVivas(usuario: User) {
@@ -382,6 +374,12 @@ export class PropuestasService {
       if (!q) throw new NotFoundException('La cotización ya no existe.');
       const para = p.tipo === 'nota' ? 'anotar' : 'cotizar';
       await this.deRecepcion.alAplicar(usuario, q, para);
+      if (p.tipo === 'envio' && this.envioDelChat) {
+        const r = await this.envioDelChat.enviar(usuario, p, q);
+        guardada = true;
+        await this.cerrar(empresa, id, 'aplicando', 'aplicada', q);
+        return r;
+      }
 
       if (p.tipo === 'seguimiento') {
         // El borrador lo escribe el seguimiento con IA, con su nota en la
@@ -583,6 +581,7 @@ export class PropuestasService {
     await this.guardadas.moverPropuesta(usuario.company_id, id, 'pendiente', {
       estado: 'descartada',
     });
+    if (p.tipo === 'envio') await this.envioDelChat?.alDescartar(p);
     return { estado: 'descartada' };
   }
 

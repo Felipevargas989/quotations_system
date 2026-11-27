@@ -222,6 +222,10 @@ Felipe: *"cuando una cotización se cierra, debería dejar una alerta a revisar 
 6. **Sin atajo por evento** (Felipe, 18-10): no existe un «este evento convive con otros» en la aceptada, porque *"va a depender de qué espacios se utilicen, qué horarios tengan (...) inclusive si fuera cabañas, puede coincidir con otro evento de cabañas"*. Cada cotización se revisa por separado.
 7. **Medido el 18-10 en producción**: 54 cotizaciones vivas chocaban con 15 aceptadas (67 pares), la mayoría por estadías largas (Rudel 14 días, Ecofor 9, FDN Canotaje 6 y 7). Solo la 384 (Jabones Maritano, 27-11) tenía exclusividad. De esas, 31 enviadas habrían recibido un toque automático en los 14 días siguientes.
 
+### 5.x Enviar las solicitadas con BelIA (doc 20 §19, 27-11-2026)
+
+El otro camino de Solicitada a Enviada, desde la ventanilla de BelIA y no desde la ficha. Sale de **contacto@** por la llave de Outlook de la empresa (no de hola@eventi-app.com por Resend), dentro del hilo del cliente, con el texto que escribe la IA, la tabla verde de `envio-belia/tabla.ts` (mismas cifras que `totalesDeCotizacion`) y el mismo PDF de `EnvioCotizacionService.generarPdf`. Usa el mismo portero (`reparosDelPortero`), deja la nota con `MARCA_DE_ENVIO` (cuenta para las versiones) y cambia el estado con `marcarEnviada`, extraído del botón el mismo día: los dos caminos sellan `sent_at` y escriben la línea del cambio de estado. Detalle en el mapa 25.
+
 ## 6. Reglas de negocio acordadas
 
 ### Envío por correo

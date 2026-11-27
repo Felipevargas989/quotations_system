@@ -292,6 +292,26 @@ export default function BeliaVentanilla() {
                   alNavegar={() => esCelular() && b.cerrar()}
                 />
               </div>
+              {(() => {
+                // «Enviar todas» (doc 20 §19), con dos o más envíos esperando.
+                const envios =
+                  t.propuestas?.filter(
+                    (p) => p.tipo === "envio" && p.estado === "pendiente",
+                  ).length ?? 0;
+                if (envios < 2 && b.enviandoTodas !== i) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => void b.enviarTodas(i)}
+                    disabled={b.enviandoTodas !== null}
+                    className="flex min-h-[40px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                  >
+                    {b.enviandoTodas === i
+                      ? `Enviando… quedan ${envios}`
+                      : `Enviar todas (${envios})`}
+                  </button>
+                );
+              })()}
               {t.propuestas?.map((p) => (
                 <PropuestaDeBelia
                   key={p.id}

@@ -53,13 +53,13 @@ type ServicioFijo = {
 
 const grupos = (q: Quotation): GrupoVariable[] =>
   (q.items?.variable_services || []) as GrupoVariable[];
-const fijos = (q: Quotation): ServicioFijo[] =>
+export const fijos = (q: Quotation): ServicioFijo[] =>
   (q.items?.fixed_services || []) as ServicioFijo[];
 
 // ---------- La matemática de la hoja, calcada ----------
 
-const ninosDe = (q: Quotation): number => Number(q.children_count || 0);
-const adultosDe = (q: Quotation): number =>
+export const ninosDe = (q: Quotation): number => Number(q.children_count || 0);
+export const adultosDe = (q: Quotation): number =>
   Math.max(0, Number(q.people_count || 0) - ninosDe(q));
 
 const audienciaDe = (g: GrupoVariable): 'ninos' | 'adultos' =>
@@ -68,12 +68,12 @@ const audienciaDe = (g: GrupoVariable): 'ninos' | 'adultos' =>
 const publicoDelGrupo = (g: GrupoVariable, q: Quotation): number =>
   audienciaDe(g) === 'ninos' ? ninosDe(q) : adultosDe(q);
 
-const personasDelGrupo = (g: GrupoVariable, q: Quotation): number => {
+export const personasDelGrupo = (g: GrupoVariable, q: Quotation): number => {
   if (typeof g.people === 'number') return g.people;
   return publicoDelGrupo(g, q) || Number(q.people_count || 0);
 };
 
-const porPersona = (g: GrupoVariable): number =>
+export const porPersona = (g: GrupoVariable): number =>
   (g.items || []).reduce(
     (s, it) => s + (it.precio || 0) * (it.quantity || 1),
     0,

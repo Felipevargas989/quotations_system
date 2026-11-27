@@ -200,6 +200,11 @@ export class SeguimientoConIAService {
     return this.outlookDeLaCasa;
   }
 
+  /** La misma llave para el envío con BelIA (doc 20 §19). */
+  llaveDeOutlook(): OutlookDeLaCasa {
+    return this.outlook();
+  }
+
   get modelo(): string {
     return process.env.MODELO_SEGUIMIENTO?.trim() || MODELO_POR_DEFECTO;
   }
