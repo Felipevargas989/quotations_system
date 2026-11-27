@@ -178,7 +178,11 @@ export default function BandasPorDia<T>({
         return (
           <section
             key={dia}
-            className="rounded-xl border border-blue-100 bg-white overflow-hidden"
+            // Sin `overflow-hidden` (27-11, Camila): recortaba la lista
+            // del buscador de ítems, que se abre por fuera de la tarjeta,
+            // y el día siguiente la tapaba. Las esquinas de la cabecera
+            // se redondean en la propia cabecera.
+            className="rounded-xl border border-blue-100 bg-white"
             aria-label={titulo}
           >
             <button
@@ -186,7 +190,9 @@ export default function BandasPorDia<T>({
               onClick={() => alternar(dia)}
               aria-expanded={!plegado}
               title={plegado ? "Desplegar el día" : "Plegar el día"}
-              className="w-full flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100/70 text-left"
+              className={`w-full flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100/70 text-left ${
+                plegado ? "rounded-[11px]" : "rounded-t-[11px]"
+              }`}
             >
               <span className="flex items-center gap-1 text-sm font-bold text-blue-900">
                 {plegado ? (
