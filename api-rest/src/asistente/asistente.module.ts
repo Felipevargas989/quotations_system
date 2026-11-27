@@ -12,6 +12,7 @@ import { ConversacionService } from './conversacion/conversacion.service';
 import { LoLeido } from './conversacion/lo-leido';
 import { CambioDeCliente } from './propuestas/cambio-de-cliente';
 import { CotizacionNuevaService } from './propuestas/cotizacion-nueva.service';
+import { EnvioDesdeElChat } from './propuestas/envio-desde-el-chat';
 import { LeccionesDesdeElChat } from './propuestas/lecciones-desde-el-chat';
 import { PropuestasRepository } from './propuestas/propuestas.repository';
 import { PropuestasService } from './propuestas/propuestas.service';
@@ -45,6 +46,8 @@ import { SeguimientoDesdeElChat } from './propuestas/seguimiento-desde-el-chat';
     LeccionesDesdeElChat,
     // Corregir un cliente mal clasificado (doc 21 §6).
     CambioDeCliente,
+    // Enviar las solicitadas (doc 20 §19).
+    EnvioDesdeElChat,
     // La conversación de cada persona (doc 20 §13, migración 182).
     ConversacionService,
     ConversacionRepository,

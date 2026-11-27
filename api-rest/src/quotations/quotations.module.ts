@@ -12,6 +12,7 @@ import { StorageModule } from 'src/storage/storage.module';
 import { UsersModule } from 'src/users/users.module';
 import { ChoquesRepository } from './choques/choques.repository';
 import { ChoquesDeFechaService } from './choques/choques.service';
+import { EnvioConBeliaService } from './envio-belia/envio-con-belia.service';
 import { EnvioCotizacionService } from './envio-cotizacion.service';
 import {
   EventDocumentsController,
@@ -63,6 +64,8 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
     GenerarRepository,
     SeguimientoConIAService,
     SeguimientoRepository,
+    // El envío de las solicitadas con BelIA (doc 20 §19).
+    EnvioConBeliaService,
     ChoquesDeFechaService,
     ChoquesRepository,
     QuotationsRepository,
@@ -81,6 +84,8 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
     ChoquesDeFechaService,
     // «Prepárame el seguimiento de la 600» desde BelIA (doc 20 §17).
     SeguimientoConIAService,
+    // El envío de las solicitadas con BelIA (doc 20 §19).
+    EnvioConBeliaService,
   ],
 })
 export class QuotationsModule {}

@@ -378,6 +378,26 @@ export function useBelia() {
     [turnos, pathname, queryClient],
   );
 
+  // «Enviar todas» (doc 20 §19): las tarjetas de envío que esperan en ese
+  // turno, una tras otra, cada una con su propio «Sí, enviar» al motor. Si
+  // una falla, queda con su mensaje y las demás siguen.
+  const [enviandoTodas, setEnviandoTodas] = useState<number | null>(null);
+  const enviarTodas = useCallback(
+    async (indice: number) => {
+      const ids =
+        turnos[indice]?.propuestas
+          ?.filter((p) => p.tipo === "envio" && p.estado === "pendiente")
+          .map((p) => p.id) ?? [];
+      setEnviandoTodas(indice);
+      try {
+        for (const id of ids) await responder(indice, id, "aplicar");
+      } finally {
+        setEnviandoTodas(null);
+      }
+    },
+    [turnos, responder],
+  );
+
   const animo =
     animoForzado(search, ES_LABORATORIO) ??
     animoDe({
@@ -412,6 +432,8 @@ export function useBelia() {
     escribiendo: turnos.some((t) => t.escribiendo),
     enviar,
     responder,
+    enviarTodas,
+    enviandoTodas,
     /** La cotización que la persona tiene abierta, si tiene una. */
     cotizacionAbierta: pantallaDe(pathname).cotizacion_id ?? null,
     animo,

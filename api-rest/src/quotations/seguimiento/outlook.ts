@@ -40,6 +40,15 @@ export type MensajeDelBuzon = {
   adjuntos?: boolean;
 };
 
+/** Un archivo para Outlook, en base64. Con `contentId`, va en línea (las
+ *  imágenes de la firma). */
+export type AdjuntoDeOutlook = {
+  name: string;
+  contentType: string;
+  contentBytes: string;
+  contentId?: string;
+};
+
 export type BorradorCreado = {
   id: string;
   /** La conversación del borrador. */
@@ -275,7 +284,7 @@ export class OutlookDeLaCasa {
   }
 
   private async llamar<T>(
-    metodo: 'GET' | 'POST' | 'PATCH',
+    metodo: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     ruta: string,
     cuerpo?: unknown,
     inmutable = false,
@@ -446,6 +455,117 @@ export class OutlookDeLaCasa {
       },
     );
     return aBorrador(listo);
+  }
+
+  /** EL ENVÍO CON BELIA (doc 20 §19, 27-11-2026): el correo de la
+   *  cotización, listo para salir. Dentro del hilo (`idMensaje`), responde
+   *  ese mensaje dirigido al cliente; sin hilo, correo nuevo con `asunto`.
+   *  Sin el aviso ámbar (no lo revisa nadie en Outlook: la persona lo vio
+   *  en la tarjeta de BelIA) y con la firma del buzón, que un borrador por
+   *  API no recibe solo. `ensayo`: el laboratorio, que se escribe a sí
+   *  mismo (felipe@) y nunca a un cliente. */
+  async borradorParaEnviar(p: {
+    buzon: string;
+    idMensaje: string | null;
+    html: string;
+    para: string;
+    cc: string[];
+    asunto: string;
+    firma: { html: string; imagenes: AdjuntoDeOutlook[] };
+    ensayo?: boolean;
+  }): Promise<BorradorCreado> {
+    if (p.ensayo) {
+      if (p.para.trim().toLowerCase() !== p.buzon.trim().toLowerCase()) {
+        throw new ErrorDeOutlook(
+          'En el laboratorio el correo va solo al mismo buzón de ensayo.',
+          400,
+        );
+      }
+    } else {
+      [p.para, ...p.cc].forEach((d) => this.destinatarioValido(d));
+    }
+    const b = this.buzon(p.buzon);
+    const cuerpo = formatear(p.html) + p.firma.html;
+    let listo: MensajeDeGraph;
+    if (p.idMensaje) {
+      const borrador = await this.llamar<MensajeDeGraph>(
+        'POST',
+        `/users/${b}/messages/${encodeURIComponent(p.idMensaje)}/createReply`,
+        {},
+      );
+      listo = await this.llamar<MensajeDeGraph>(
+        'PATCH',
+        `/users/${b}/messages/${encodeURIComponent(borrador.id)}`,
+        {
+          toRecipients: [direccion(p.para)],
+          ccRecipients: p.cc.map(direccion),
+          body: {
+            contentType: 'HTML',
+            content: cuerpo + (borrador.body?.content ?? ''),
+          },
+        },
+      );
+    } else {
+      if (!p.asunto.trim()) {
+        throw new ErrorDeOutlook('Falta el asunto del correo nuevo.', 400);
+      }
+      listo = await this.llamar<MensajeDeGraph>(
+        'POST',
+        `/users/${b}/messages`,
+        {
+          subject: p.asunto.trim(),
+          body: { contentType: 'HTML', content: cuerpo },
+          toRecipients: [direccion(p.para)],
+          ccRecipients: p.cc.map(direccion),
+        },
+      );
+    }
+    for (const imagen of p.firma.imagenes) {
+      await this.adjuntar(p.buzon, listo.id, imagen);
+    }
+    return aBorrador(listo);
+  }
+
+  /** Un archivo al mensaje: el PDF de la cotización o una imagen de la
+   *  firma (en línea, con su contentId). Hasta 3 MB por esta vía. */
+  async adjuntar(
+    buzon: string,
+    id: string,
+    a: AdjuntoDeOutlook,
+  ): Promise<void> {
+    const b = this.buzon(buzon);
+    await this.llamar(
+      'POST',
+      `/users/${b}/messages/${encodeURIComponent(id)}/attachments`,
+      {
+        '@odata.type': '#microsoft.graph.fileAttachment',
+        name: a.name,
+        contentType: a.contentType,
+        contentBytes: a.contentBytes,
+        ...(a.contentId ? { contentId: a.contentId, isInline: true } : {}),
+      },
+    );
+  }
+
+  /** Envía un borrador que ya existe (la llave tiene Mail.Send). Lo usa
+   *  solo el envío con BelIA, después del «Sí, enviar» de la persona. */
+  async enviar(buzon: string, id: string): Promise<void> {
+    const b = this.buzon(buzon);
+    await this.llamar(
+      'POST',
+      `/users/${b}/messages/${encodeURIComponent(id)}/send`,
+      {},
+    );
+  }
+
+  /** Bota un borrador que dejó BelIA y la persona no quiso (pasa a
+   *  Elementos eliminados). Nunca un correo de otro. */
+  async botarBorrador(buzon: string, id: string): Promise<void> {
+    const b = this.buzon(buzon);
+    await this.llamar(
+      'DELETE',
+      `/users/${b}/messages/${encodeURIComponent(id)}`,
+    );
   }
 
   /** El identificador inmutable de un mensaje (y su conversación): el que

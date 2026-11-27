@@ -16,6 +16,7 @@ import type { SeguimientoConIAService } from 'src/quotations/seguimiento/seguimi
 import { UserRole, type User } from 'src/users/entities/user.entity';
 import type { AsistenteRepository } from '../asistente.repository';
 import type { TarjetaDePropuesta } from '../propuestas/comun';
+import type { EnvioDesdeElChat } from '../propuestas/envio-desde-el-chat';
 import type { PropuestasService } from '../propuestas/propuestas.service';
 
 // LO COMÚN DE LAS HERRAMIENTAS DE BELIA (doc 20 §3 y §9).
@@ -51,6 +52,9 @@ export type ContextoDeHerramienta = {
   /** «¿Dónde está el último correo?» (doc 20 §18, sprint 2): solo lee los
    *  buzones de la casa. Sin la pieza, la herramienta lo dice. */
   seguimiento?: Pick<SeguimientoConIAService, 'ultimoCorreo'>;
+  /** «Envía las solicitadas» (doc 20 §19): prepara cada correo y su
+   *  tarjeta. Sin la pieza, la herramienta lo dice. */
+  envios?: Pick<EnvioDesdeElChat, 'proponer'>;
 };
 
 export type Herramienta = {

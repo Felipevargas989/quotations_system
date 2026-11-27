@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
@@ -206,16 +207,42 @@ describe('Outlook: solo borradores y solo los buzones de la lista', () => {
     ).rejects.toThrow('Destinatario no válido');
   });
 
-  it('no tiene cómo enviar, borrar ni mover', () => {
+  // Hasta el 27-11-2026 Outlook no tenía cómo enviar. Desde el doc 20 §19
+  // (Felipe: «que los envíe BelIA, pero que antes me muestre qué le dirá a
+  // cada uno») envía, bota y arma el correo listo SOLO el envío con BelIA,
+  // después del «Sí, enviar» de la persona. Nadie más los llama, y nada
+  // mueve correos.
+  it('enviar y botar existen solo para el envío con BelIA', () => {
     const metodos = Object.getOwnPropertyNames(OutlookDeLaCasa.prototype);
+    const peligrosos = ['borradorParaEnviar', 'enviar', 'botarBorrador'];
     expect(
-      metodos.filter((m) => /send|enviar|delete|eliminar|move|mover/i.test(m)),
-    ).toEqual([]);
+      metodos.filter((m) =>
+        /send|enviar|delete|eliminar|botar|move|mover/i.test(m),
+      ),
+    ).toEqual(peligrosos);
     const codigo = readFileSync(
       join(__dirname, '../../../seguimiento/outlook.ts'),
       'utf8',
     );
-    expect(codigo).not.toMatch(/\/send\b|sendMail|'DELETE'|\/move\b/);
+    expect(codigo).not.toMatch(/sendMail|\/move\b/);
+    const raiz = join(__dirname, '../../../..');
+    const quienes = execSync(
+      `grep -rlE "\\.(borradorParaEnviar|enviar|botarBorrador)\\(" ${raiz} --include=*.ts`,
+    )
+      .toString()
+      .trim()
+      .split('\n')
+      .map((f) => f.replace(`${raiz}/`, ''))
+      .filter((f) => !f.includes('/tests/') && !f.endsWith('.spec.ts'))
+      .filter((f) => {
+        const c = readFileSync(join(raiz, f), 'utf8');
+        return /(outlook|this\.outlook\(\))\s*\.\s*(borradorParaEnviar|enviar|botarBorrador)\(|\.botarBorrador\(|\.borradorParaEnviar\(/.test(
+          c,
+        );
+      });
+    expect(quienes.sort()).toEqual([
+      'quotations/envio-belia/envio-con-belia.service.ts',
+    ]);
   });
 
   it('un error de Microsoft llega con su estado, sin la llave', async () => {
