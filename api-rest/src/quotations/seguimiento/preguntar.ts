@@ -27,20 +27,26 @@ export async function preguntarALaIA(
   logger: PinoLogger,
   mensaje: string,
   uso: Uso,
+  // El seguimiento que envía BelIA (doc 20 §20) pide además la nota de lo
+  // hablado: su esquema y sus instrucciones. Sin esto, los del botón.
+  formato?: { esquema: object; instrucciones: () => string },
 ): Promise<RespuestaDelSeguimiento> {
   try {
     const respuesta = await cliente.messages.parse({
       model: modelo,
       max_tokens: 4000,
       output_config: {
-        format: jsonSchemaOutputFormat(ESQUEMA_DEL_SEGUIMIENTO),
+        format: jsonSchemaOutputFormat(
+          (formato?.esquema ??
+            ESQUEMA_DEL_SEGUIMIENTO) as typeof ESQUEMA_DEL_SEGUIMIENTO,
+        ),
       },
       // Las reglas van como instrucciones fijas, en caché: «Generar
       // seguimientos» las lee mucho más barato desde el segundo.
       system: [
         {
           type: 'text',
-          text: instruccionesDeCorreo(),
+          text: (formato?.instrucciones ?? instruccionesDeCorreo)(),
           cache_control: { type: 'ephemeral' },
         },
       ],

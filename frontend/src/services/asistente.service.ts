@@ -74,6 +74,8 @@ export type TarjetaDePropuesta = {
   };
   /** El correo que BelIA va a enviar (doc 20 §19). */
   envio?: {
+    /** La cotización en Solicitada (§19) o un seguimiento (§20). */
+    clase?: "cotizacion" | "seguimiento";
     para: string;
     cc: string[];
     desde: string;

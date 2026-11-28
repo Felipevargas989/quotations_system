@@ -56,6 +56,8 @@ export default function PropuestaDeBelia({
   // Enviar una cotización solicitada (doc 20 §19): el correo completo antes
   // del «Sí, enviar».
   const esEnvio = p.tipo === "envio";
+  // El seguimiento que envía BelIA (doc 20 §20): la misma tarjeta, sin PDF.
+  const envioDeSeguimiento = esEnvio && p.envio?.clase === "seguimiento";
   const [correoCompleto, setCorreoCompleto] = useState(false);
   const Icono = esEnvio
     ? Send
@@ -89,15 +91,17 @@ export default function PropuestaDeBelia({
                 ? p.resumen
                 : esSeguimiento
                   ? "Seguimiento por correo"
-                  : esEnvio
-                    ? "Envío de la cotización"
-                    : esCliente
-                      ? "Corregir el cliente"
-                      : esNueva
-                        ? p.nueva?.es === "requerimiento"
-                          ? "Requerimiento nuevo"
-                          : "Cotización nueva"
-                        : "Propuesta"}
+                  : envioDeSeguimiento
+                    ? "Envío del seguimiento"
+                    : esEnvio
+                      ? "Envío de la cotización"
+                      : esCliente
+                        ? "Corregir el cliente"
+                        : esNueva
+                          ? p.nueva?.es === "requerimiento"
+                            ? "Requerimiento nuevo"
+                            : "Cotización nueva"
+                          : "Propuesta"}
           {p.enlace && p.numero != null && (
             <>
               {" · "}
@@ -143,7 +147,9 @@ export default function PropuestaDeBelia({
               <dd className="font-semibold text-slate-900">
                 {p.envio.total}
                 <span className="ml-1.5 font-normal text-slate-500">
-                  · con el PDF adjunto
+                  {envioDeSeguimiento
+                    ? "· sin adjunto (la cotización ya salió)"
+                    : "· con el PDF adjunto"}
                 </span>
               </dd>
             </dl>

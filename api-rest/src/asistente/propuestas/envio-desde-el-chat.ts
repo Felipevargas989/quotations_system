@@ -1,13 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { mensajeDe } from 'src/logging/mensaje-de-error';
+import { QuotationFollowupsService } from 'src/quotation-followups/quotation-followups.service';
 import {
   EnvioConBeliaService,
   type EnvioPreparado,
   type EnvioSaltado,
 } from 'src/quotations/envio-belia/envio-con-belia.service';
+import { SeguimientoConBeliaService } from 'src/quotations/envio-belia/seguimiento-con-belia.service';
+import { fechaEnChile } from 'src/quotations/seguimiento/elegibles';
 import type { User } from 'src/users/entities/user.entity';
 import { enlaceDe, ErrorDeHerramienta } from '../herramientas/comun';
+import {
+  semaforo,
+  type InfoDeBitacora,
+} from '../herramientas/seguimientos-pendientes';
 import type { ResultadoDeAplicar, TarjetaDePropuesta } from './comun';
 import { PropuestasRepository, type Propuesta } from './propuestas.repository';
 import { huellaDe, type CotizacionParaCambiar } from './reglas';
@@ -20,6 +27,14 @@ import { huellaDe, type CotizacionParaCambiar } from './reglas';
 // una tarjeta por cotización con el texto completo. Nada sale hasta el
 // «Sí, enviar» de la persona (una por una o «Enviar todas» en la
 // ventanilla); con su «No», el borrador se bota.
+//
+// Desde el 28-11-2026 también los SEGUIMIENTOS (doc 20 §20; Felipe: «Sí,
+// prepáralo», «siempre desde contacto@»): la misma tarjeta, con
+// `clase: 'seguimiento'` dentro de la propuesta (tipo `envio`, sin
+// migración), preparada por `SeguimientoConBeliaService`.
+
+/** Qué se envía: la cotización en Solicitada o el seguimiento. */
+export type ClaseDeEnvio = 'cotizacion' | 'seguimiento';
 
 /** Tope por pedido: el tiempo de la IA y las tarjetas de un turno. */
 export const TOPE_DE_ENVIOS = 20;
@@ -59,20 +74,30 @@ export class EnvioDesdeElChat {
   constructor(
     private readonly guardadas: PropuestasRepository,
     private readonly envio: EnvioConBeliaService,
+    private readonly seguimientos: SeguimientoConBeliaService,
+    private readonly bitacora: QuotationFollowupsService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(EnvioDesdeElChat.name);
   }
 
-  /** Prepara las solicitadas que la persona ve (`laVe`), o solo las de
-   *  `numeros`, y arma sus tarjetas. */
+  /** Prepara las solicitadas (o los seguimientos) que la persona ve
+   *  (`laVe`), o solo las de `numeros`, y arma sus tarjetas. */
   async proponer(
     usuario: User,
     laVe: (q: { clients: { client_type: string | null } | null }) => boolean,
     numeros?: number[],
+    clase: ClaseDeEnvio = 'cotizacion',
   ): Promise<ResultadoDeLaTanda> {
     const empresa = usuario.company_id;
-    let lista = (await this.guardadas.solicitadas(empresa)).filter(laVe);
+    const seguimiento = clase === 'seguimiento';
+    let lista: Array<{
+      id: string;
+      quotation_number: number;
+      clients: { name: string | null; client_type: string | null } | null;
+    }> = seguimiento
+      ? (await this.guardadas.enSeguimiento(empresa)).filter(laVe)
+      : (await this.guardadas.solicitadas(empresa)).filter(laVe);
     if (numeros?.length) {
       const pedidas = new Set(numeros);
       lista = lista.filter((q) => pedidas.has(q.quotation_number));
@@ -81,13 +106,36 @@ export class EnvioDesdeElChat {
       );
       if (lista.length === 0) {
         throw new ErrorDeHerramienta(
-          `No encontré solicitadas con esos N° (${faltan.join(', ')}): o no existen, o no están en Solicitada, o son requerimientos.`,
+          seguimiento
+            ? `No encontré cotizaciones enviadas o en negociación con esos N° (${faltan.join(', ')}): o no existen, o no están en esos estados, o su cargo no las ve.`
+            : `No encontré solicitadas con esos N° (${faltan.join(', ')}): o no existen, o no están en Solicitada, o son requerimientos.`,
         );
       }
+    } else if (seguimiento) {
+      // La tanda: las que «Requieren seguimiento», con la regla del
+      // tablero, de la más urgente a la menos.
+      const info = (await this.bitacora.mapByCompany(empresa)) as Record<
+        string,
+        InfoDeBitacora
+      >;
+      const hoy = fechaEnChile();
+      lista = (
+        lista as Awaited<ReturnType<PropuestasRepository['enSeguimiento']>>
+      )
+        .map((q) => ({ q, s: semaforo(q, info[q.id], hoy) }))
+        .filter((x) => x.s.requiere)
+        .sort(
+          (a, b) =>
+            (b.s.requiere ? b.s.urgencia : 0) -
+            (a.s.requiere ? a.s.urgencia : 0),
+        )
+        .map((x) => x.q);
     }
     if (lista.length === 0) {
       throw new ErrorDeHerramienta(
-        'No hay cotizaciones en Solicitada que puedas enviar.',
+        seguimiento
+          ? 'No hay cotizaciones que requieran seguimiento y que puedas enviar.'
+          : 'No hay cotizaciones en Solicitada que puedas enviar.',
       );
     }
     const tanda = lista.slice(0, TOPE_DE_ENVIOS);
@@ -99,7 +147,11 @@ export class EnvioDesdeElChat {
     };
     const hechos = await deANPorVez(tanda, A_LA_VEZ, async (q) => {
       try {
-        return await this.prepararUna(usuario, q.id);
+        return await this.prepararUna(
+          usuario,
+          q.id,
+          seguimiento ? { aPedido: Boolean(numeros?.length) } : null,
+        );
       } catch (e) {
         this.logger.warn(
           `N° ${q.quotation_number}: no pude preparar el envío: ${mensajeDe(e)}`,
@@ -124,6 +176,8 @@ export class EnvioDesdeElChat {
   private async prepararUna(
     usuario: User,
     quotationId: string,
+    // Con esto, un seguimiento (doc 20 §20); sin esto, la cotización.
+    deSeguimiento: { aPedido: boolean } | null,
   ): Promise<TarjetaDePropuesta | EnvioSaltado> {
     const empresa = usuario.company_id;
     // Lo que esperaba de antes se reemplaza: su borrador se bota primero,
@@ -137,7 +191,13 @@ export class EnvioDesdeElChat {
     }
     await this.guardadas.descartarPendientes(empresa, quotationId, usuario.id);
 
-    const listo = await this.envio.preparar(quotationId, usuario);
+    const listo = deSeguimiento
+      ? await this.seguimientos.preparar(
+          quotationId,
+          usuario,
+          deSeguimiento.aPedido,
+        )
+      : await this.envio.preparar(quotationId, usuario);
     if (!esPreparado(listo)) return listo;
     const q = await this.guardadas.cotizacionParaCambiar(empresa, {
       id: quotationId,
@@ -149,7 +209,11 @@ export class EnvioDesdeElChat {
       usuario_id: usuario.id,
       usuario_nombre: usuario.full_name?.trim() || null,
       tipo: 'envio',
-      resumen: listo.resumen || `Enviarle la cotización a ${listo.para}`,
+      resumen:
+        listo.resumen ||
+        (deSeguimiento
+          ? `Enviarle el seguimiento a ${listo.para}`
+          : `Enviarle la cotización a ${listo.para}`),
       antes: {},
       despues: listo as unknown as Record<string, unknown>,
       huella_antes: huellaDe(q),
@@ -173,6 +237,7 @@ export class EnvioDesdeElChat {
       resumen: fila.resumen,
       lineas: [],
       envio: {
+        clase: e.clase ?? 'cotizacion',
         para: e.para,
         cc: e.cc,
         desde: e.buzon,
@@ -206,7 +271,10 @@ export class EnvioDesdeElChat {
     if (!esPreparado(p.despues)) {
       throw new ErrorDeHerramienta('A esa propuesta le falta el correo.');
     }
-    const r = await this.envio.enviar(p.despues, usuario);
+    const r =
+      p.despues.clase === 'seguimiento'
+        ? await this.seguimientos.enviar(p.despues, usuario)
+        : await this.envio.enviar(p.despues, usuario);
     return {
       estado: 'aplicada',
       numero: q.quotation_number,

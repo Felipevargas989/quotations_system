@@ -8,7 +8,10 @@ import { buscarEnCatalogo } from './buscar-en-catalogo';
 import { calendario } from './calendario';
 import { loQueHayQueComprar } from './compras';
 import type { Herramienta } from './comun';
-import { proponerEnvioDeCotizaciones } from './envio';
+import {
+  proponerEnvioDeCotizaciones,
+  proponerEnvioDeSeguimientos,
+} from './envio';
 import {
   lecciones,
   proponerDecisionDeLeccion,
@@ -64,6 +67,7 @@ export const HERRAMIENTAS: readonly Herramienta[] = [
   proponerCambioDeCliente,
   // Doc 20 §19: enviar las solicitadas, con una tarjeta por correo.
   proponerEnvioDeCotizaciones,
+  proponerEnvioDeSeguimientos,
 ];
 
 /** Las que puede usar esta persona: su cargo las ve en pantalla (con los

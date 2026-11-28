@@ -78,3 +78,78 @@ export const proponerEnvioDeCotizaciones: Herramienta = {
     };
   },
 };
+
+/** «Envía los seguimientos» (doc 20 §20; Felipe, 28-11-2026: «Sí,
+ *  prepáralo» y «siempre desde contacto@»). Igual que la de arriba, con el
+ *  correo de seguimiento de «✉ Generar seguimiento»: prepara, muestra y
+ *  sale recién con el «Sí, enviar». */
+export const proponerEnvioDeSeguimientos: Herramienta = {
+  nombre: 'proponer_envio_de_seguimientos',
+  descripcion:
+    'Prepara el envío por correo de los seguimientos de cotizaciones enviadas o en negociación: ' +
+    'por cada una, la IA de Eventia lee el hilo del cliente en contacto@ (si la conversación estaba ' +
+    'en otro buzón, va como correo nuevo desde contacto@), escribe el seguimiento con las reglas de ' +
+    'la casa y lo deja listo con la firma de contacto@. Sin `numeros`, todas las que «Requieren ' +
+    `seguimiento» y la persona ve (hasta ${TOPE_DE_ENVIOS} por pedido, las más urgentes primero); las ` +
+    'que tienen el próximo contacto por llamada o WhatsApp no se preparan y vuelven con su porqué. ' +
+    'Con `numeros`, esas, aunque su próximo contacto no haya vencido. Tarda cerca de un minuto por ' +
+    'cada cinco. NO envía nada: la persona ve una tarjeta por cotización con el correo completo y ' +
+    'aprueba con «Sí, enviar» (o «Enviar todas»). Úsala cuando la persona pida ENVIAR los ' +
+    'seguimientos; si solo quiere el borrador en Outlook para revisarlo allá, es proponer_seguimiento.',
+  esquema: {
+    type: 'object',
+    properties: {
+      numeros: {
+        type: 'array',
+        items: { type: 'integer' },
+        description:
+          'Solo estas (los N°). Sin esto, todas las que requieren seguimiento y la persona ve.',
+      },
+    },
+  },
+  cargos: SALES_AND_UP,
+  dentroDe: ['cotizaciones'],
+  derecho: 'seguimiento_con_ia',
+  async ejecutar(entrada, ctx) {
+    if (!ctx.envios) {
+      throw new ErrorDeHerramienta(
+        'El envío con BelIA no está disponible en este motor.',
+      );
+    }
+    const numeros = Array.isArray(entrada.numeros)
+      ? entrada.numeros
+          .map((x) => entero(x, 1, 100_000_000))
+          .filter((x): x is number => x !== undefined)
+          .slice(0, 50)
+      : undefined;
+    const tipos = await tiposPara(ctx);
+    const r = await ctx.envios.proponer(
+      ctx.usuario,
+      (q) =>
+        laVeElCargo(tipos, {
+          request_type: RequestType.COTIZACION,
+          clients: q.clients,
+        }),
+      numeros,
+      'seguimiento',
+    );
+    r.tarjetas.forEach((t) => mostrar(ctx, t));
+    return {
+      listos: r.tarjetas.map((t) => ({
+        numero: t.numero,
+        cliente: t.cliente,
+        para: t.envio?.para,
+        lo_que_le_dice: t.resumen,
+      })),
+      no_preparados: r.saltadas.map((s) => ({
+        numero: s.numero,
+        cliente: s.cliente,
+        por_que: s.motivo,
+      })),
+      fallaron: r.fallas,
+      quedan_sin_preparar: r.quedan,
+      importante:
+        'NADA se ha enviado todavía. La persona ve una tarjeta por cotización con el seguimiento completo y aprueba con «Sí, enviar» o con «Enviar todas». Dile cuántos quedaron listos, cuáles no y por qué (en una línea cada uno: las de llamada o WhatsApp, que las haga por ese medio), y que revise y apruebe en las tarjetas. Si quedan sin preparar, que te lo pida de nuevo después de enviar estos.',
+    };
+  },
+};

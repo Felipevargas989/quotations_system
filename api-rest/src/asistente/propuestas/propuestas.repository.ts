@@ -68,6 +68,35 @@ export class PropuestasRepository {
     >;
   }
 
+  /** Las cotizaciones enviadas o en negociación de la empresa (no los
+   *  requerimientos): las que pueden llevar un seguimiento que envía BelIA
+   *  (doc 20 §20). */
+  async enSeguimiento(companyId: Company['id']): Promise<
+    Array<{
+      id: string;
+      quotation_number: number;
+      event_date: string | null;
+      sent_at: string | null;
+      created_at: string;
+      clients: { name: string | null; client_type: string | null } | null;
+    }>
+  > {
+    const { data, error } = await this.supabase.client
+      .from('quotations')
+      .select(
+        'id, quotation_number, event_date, sent_at, created_at, clients ( name, client_type )',
+      )
+      .eq('company_id', companyId)
+      .in('quotation_status', ['enviada', 'en_negociacion'])
+      .eq('request_type', 'cotizacion')
+      .order('event_date', { ascending: true })
+      .limit(300);
+    if (error) throw error;
+    return (data ?? []) as unknown as Awaited<
+      ReturnType<PropuestasRepository['enSeguimiento']>
+    >;
+  }
+
   /** Los tipos de evento activos de la empresa (Configuración), como los
    *  ofrece el cotizador. */
   async tiposDeEvento(companyId: Company['id']): Promise<string[]> {
