@@ -269,7 +269,10 @@ export default function ResumenDelDia({
               <div className="space-y-3">
                 {eventosDelDia.map((e) => (
                   <div key={e.id}>
-                    <p className="text-xs font-semibold uppercase text-gray-500 mb-0.5">
+                    <p
+                      data-titulo-hoja
+                      className="text-xs font-semibold uppercase text-gray-500 mb-0.5"
+                    >
                       #{e.numero} · {e.cliente}
                     </p>
                     <TablaDeGente
@@ -350,7 +353,7 @@ function Bloque({
 }) {
   return (
     <section>
-      <div className="mb-1.5">
+      <div className="mb-1.5" data-titulo-hoja>
         <TituloDeSeccion titulo={titulo} color={color} encabezado>
           <span
             data-dinero

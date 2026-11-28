@@ -62,13 +62,23 @@ ${estilos}
   body { background:#fff; padding:24px; }
   /* Los colores de cada tabla también en papel y en PDF. */
   * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  table, tr { page-break-inside:avoid; }
+  /* Que salga TODO, aunque sean varias hojas (Felipe, 28-11-2026: el
+     sábado 28 la tabla de planta saltaba entera a otra hoja y su título
+     quedaba solo, con la página en blanco abajo). Las tablas se pueden
+     partir; las filas no; el encabezado se repite en cada hoja, y el
+     título de una tabla nunca queda solo al pie. */
+  tr { break-inside:avoid; page-break-inside:avoid; }
+  thead { display:table-header-group; }
+  [data-titulo-hoja] { break-after:avoid; page-break-after:avoid; }
+  /* La hoja usa todo el ancho del papel, sin el marco de la pantalla. */
+  .hoja > * { border:0 !important; border-radius:0 !important;
+    padding:0 !important; width:100% !important; max-width:none !important; }
   @media print {
     @page { size:A4 portrait; margin:12mm; }
     body { padding:0; }
   }
 </style></head><body>
-${cuerpoDeLaHoja(nodo)}
+<main class="hoja">${cuerpoDeLaHoja(nodo)}</main>
 <script>
   // Cuando cargaron los estilos, el diálogo de imprimir solo, una vez.
   window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 150); });
