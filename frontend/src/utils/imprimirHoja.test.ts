@@ -66,4 +66,23 @@ describe("imprimirHoja", () => {
     expect(html).toContain("window.print()");
     expect(html).not.toContain("<button");
   });
+  it("sale todo aunque sean varias hojas: la tabla se parte, la fila no (28-11-2026)", () => {
+    let html = "";
+    const abrir = vi.spyOn(window, "open").mockReturnValue({
+      document: {
+        write: (h: string) => {
+          html += h;
+        },
+        close: () => undefined,
+      },
+    } as unknown as Window);
+    imprimirHoja(document.createElement("div"), "Personal - sábado 28 de noviembre");
+    abrir.mockRestore();
+    // Antes: "table, tr { page-break-inside:avoid }" mandaba la tabla de
+    // planta entera a otra hoja y dejaba su título solo al pie.
+    expect(html).not.toMatch(/table\s*,\s*tr\s*\{\s*page-break-inside/);
+    expect(html).toContain("tr { break-inside:avoid");
+    expect(html).toContain("[data-titulo-hoja] { break-after:avoid");
+    expect(html).toContain('<main class="hoja">');
+  });
 });
