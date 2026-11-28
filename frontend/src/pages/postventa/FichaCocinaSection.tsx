@@ -637,6 +637,13 @@ export default function FichaCocinaSection({
   <h2 class="seccion">Servicios del día</h2>
   ${bloques || '<p style="margin-top:8px;color:#888;font-size:13px">Sin servicios variables asignados.</p>'}
   ${
+    // Felipe, 28-11: las notas van justo debajo de los servicios, en la
+    // hoja principal (no al final, después del retiro de bodega).
+    notas
+      ? `<div class="notas-bloque"><h2 class="seccion">Notas del evento</h2><div class="notas"><b>Cocina — leer antes de partir</b><ul>${notas}</ul></div></div>`
+      : ""
+  }
+  ${
     bodega
       ? `<div class="bodega-bloque"><h2 class="seccion">${esc(tituloBodega)}</h2><div class="bodega-cols">${bodega}</div></div>`
       : ""
@@ -657,11 +664,6 @@ export default function FichaCocinaSection({
       }
     </div>
   </div>
-  ${
-    notas
-      ? `<h2 class="seccion">Notas del evento</h2><div class="notas"><b>Cocina — leer antes de partir</b><ul>${notas}</ul></div>`
-      : ""
-  }
   <div class="pie">
     <span>Generada el ${esc(generada)} · ${esc(company?.name || "Eventia")}</span>
     <span>Si cambian personas, servicios o notas: volver a imprimir — la ficha siempre sale con los datos vigentes</span>
@@ -785,6 +787,7 @@ export default function FichaCocinaSection({
   .brow .bqty { font-weight:700; white-space:nowrap; }
 
   /* ===== Notas ===== */
+  .notas-bloque { break-inside:avoid; page-break-inside:avoid; }
   .notas { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; }
   .notas b { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#b45309; margin-bottom:4px; }
   .notas ul { list-style:none; }
