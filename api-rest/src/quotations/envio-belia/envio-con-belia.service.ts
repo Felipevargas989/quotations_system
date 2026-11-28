@@ -80,6 +80,12 @@ const CORREOS_A_LEER = 4;
 
 /** Lo que guarda la propuesta y ve la tarjeta. */
 export type EnvioPreparado = {
+  /** Qué correo es: la cotización (§19) o un seguimiento (§20). Sin esto,
+   *  la cotización (las propuestas guardadas antes del 28-11). */
+  clase?: 'cotizacion' | 'seguimiento';
+  /** Solo el seguimiento: los seguimientos sin respuesta que ya había en
+   *  el hilo antes de este, para el próximo contacto. */
+  sin_respuesta?: number;
   quotation_id: string;
   numero: number;
   cliente: string;

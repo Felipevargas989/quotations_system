@@ -973,3 +973,47 @@ buzón; la tarjeta dice a quién habría ido.
 excepción: las cotizaciones en Solicitada, con esta herramienta y el «Sí,
 enviar». Outlook ya puede enviar y botar, pero solo lo llama este servicio (lo
 cuida `outlook.spec.ts`).
+
+## 20. BelIA envía los seguimientos (28-11-2026, en el laboratorio)
+
+**El pedido.** Con el envío de las solicitadas ya en producción (§19, PR
+#411), Felipe preguntó cómo funciona el seguimiento: hoy queda como borrador
+en Outlook, en el buzón donde está el hilo, y lo envía una persona. Le dijo
+*"Sí, prepáralo"* a que BelIA también los envíe, y a la pregunta de qué hacer
+cuando el hilo del cliente está en otro buzón (felipe@, camila@…):
+*"Siempre desde contacto@"*.
+
+**Cómo queda.**
+1. «Envía los seguimientos» → `proponer_envio_de_seguimientos` (mismos
+   cargos, sección y derecho que la de §19). Sin números, las que «Requieren
+   seguimiento» con la regla del tablero (`semaforo` de
+   `seguimientos-pendientes.ts`), solo enviadas y en negociación que el cargo
+   ve, de la más urgente a la menos, hasta 20. Con números, esas, aunque su
+   próximo contacto no haya vencido (como `proponer_seguimiento`).
+2. Por cada una, `SeguimientoConBeliaService.preparar`
+   (`api-rest/src/quotations/envio-belia/`): en la tanda se salta lo que
+   tiene el próximo contacto por llamada o WhatsApp (`porQueNoVaEnLaTanda`,
+   con su porqué para la persona); también el tope de calendario, un
+   borrador de «✉ Generar seguimiento» que espera, el evento pasado y el
+   cliente sin correo útil. El hilo se busca **solo en contacto@**
+   (`decidirHilo`): si la conversación estaba en otro buzón, va como correo
+   nuevo desde contacto@. La IA escribe con las mismas reglas del botón (el
+   cerebro de «escribir») más lo propio de este correo
+   (`instrucciones-del-seguimiento.ts`: sale tal cual, voz de contacto@ y la
+   nota corta de lo hablado), y queda listo con la firma de contacto@, sin
+   aviso ámbar y sin adjunto.
+3. La misma tarjeta `envio` de §19, con `clase: 'seguimiento'` dentro de la
+   propuesta (sin migración): «Envío del seguimiento», el correo completo,
+   «Sí, enviar» o «Enviar todas».
+4. Con el «Sí»: la cotización tiene que seguir enviada o en negociación y sin
+   cambios (la huella), y el borrador seguir en Outlook. Se envía y la
+   bitácora anota, firmado por BelIA a pedido de quien aprobó, el envío, lo
+   hablado y el próximo contacto con la regla de siempre (doc 18 §9: 14 días
+   por correo; con dos seguimientos sin respuesta, una llamada en 7). El
+   estado no cambia.
+5. Con el «No», el borrador se bota.
+
+El botón «✉ Generar seguimiento» y `proponer_seguimiento` siguen igual: dejan
+el borrador para revisarlo en Outlook. El laboratorio nunca le escribe a un
+cliente (buzón de ensayo, igual que §19). `outlook.spec.ts` cuida que solo
+estos dos servicios envíen.

@@ -13,6 +13,7 @@ import { UsersModule } from 'src/users/users.module';
 import { ChoquesRepository } from './choques/choques.repository';
 import { ChoquesDeFechaService } from './choques/choques.service';
 import { EnvioConBeliaService } from './envio-belia/envio-con-belia.service';
+import { SeguimientoConBeliaService } from './envio-belia/seguimiento-con-belia.service';
 import { EnvioCotizacionService } from './envio-cotizacion.service';
 import {
   EventDocumentsController,
@@ -66,6 +67,7 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
     SeguimientoRepository,
     // El envío de las solicitadas con BelIA (doc 20 §19).
     EnvioConBeliaService,
+    SeguimientoConBeliaService,
     ChoquesDeFechaService,
     ChoquesRepository,
     QuotationsRepository,
@@ -86,6 +88,7 @@ import { SeguimientoConIAService } from './seguimiento/seguimiento.service';
     SeguimientoConIAService,
     // El envío de las solicitadas con BelIA (doc 20 §19).
     EnvioConBeliaService,
+    SeguimientoConBeliaService,
   ],
 })
 export class QuotationsModule {}

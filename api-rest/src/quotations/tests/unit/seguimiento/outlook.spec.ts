@@ -240,8 +240,11 @@ describe('Outlook: solo borradores y solo los buzones de la lista', () => {
           c,
         );
       });
+    // El envío de las solicitadas (doc 20 §19) y el seguimiento que envía
+    // BelIA (§20, 28-11-2026): los dos, con el «Sí, enviar» de la persona.
     expect(quienes.sort()).toEqual([
       'quotations/envio-belia/envio-con-belia.service.ts',
+      'quotations/envio-belia/seguimiento-con-belia.service.ts',
     ]);
   });
 
